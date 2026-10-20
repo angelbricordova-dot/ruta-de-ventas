@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+/*
+  Estilo "Editorial greeting" (taste-skill, seed 359318502).
+  Colores en los datos, no en el marco: el acento ocupa menos del 2% de la pantalla.
+  Cada proyecto tiene su tono propio, siempre pálido: es identidad, no dato.
+*/
+:root {
+  --ground: #ffffff;
+  --surface: #f6f6f3;
+  --raised: #ffffff;
+  --border: #e8e8e4;
+  --rule: #f0f0ec;
+  --control: #d6d6d1;
+  --text: #1f201d;
+  --muted: #61615d;
+  --faint: #8c8c88;
+  --accent: #1b6e66;
+  --accent-tint: #e3f1ef;
+  --positive: #2e7d32;
+  --negative: #b42318;
+  --warning: #92400e;
+  --active: #ebebe7;
+
+  --pill-positive-bg: #dcfae5;
+  --pill-positive-ink: #04250e;
+  --pill-negative-bg: #fdecea;
+  --pill-negative-ink: #7a1d14;
+  --pill-warning-bg: #fff6e0;
+  --pill-warning-ink: #7c3a0b;
+  --pill-neutral-bg: #f0f0ec;
+  --pill-neutral-ink: #3d3d3a;
+  --pill-accent-bg: #e3f1ef;
+  --pill-accent-ink: #0e403b;
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-border: var(--border);
+  --color-rule: var(--rule);
+  --color-control: var(--control);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-tint: var(--accent-tint);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-warning: var(--warning);
+  --color-active: var(--active);
+
+  --font-sans: var(--font-instrument-sans), "Instrument Sans", system-ui, sans-serif;
+  --font-serif: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+
+  --radius-card: 22px;
+  --radius-row: 14px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  font-feature-settings: "ss01";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent-tint);
+  color: #0e403b;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+input,
+select,
+textarea {
+  caret-color: var(--accent);
+  /* 16px evita el zoom automático de iOS al enfocar. */
+  font-size: 16px;
+}
+
+@media (min-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 14px;
+  }
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scroll horizontal fino para carriles y filtros en el teléfono. */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--control) transparent;
+}
+
+@media (hover: none) {
+  button,
+  a {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/* Hoja inferior / panel lateral: entra desde abajo en el teléfono y desde la derecha en escritorio. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@keyframes sheet-left {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.sheet {
+  animation: sheet-up 240ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (min-width: 768px) {
+  .sheet {
+    animation-name: sheet-left;
+  }
+}
+.backdrop {
+  animation: fade 200ms ease-out;
+}
+
+.press {
+  transition: transform 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out;
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .backdrop {
+    animation: none;
+  }
+  .press:active {
+    transform: none;
+  }
+}

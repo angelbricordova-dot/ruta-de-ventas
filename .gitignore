@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+.env*.local
+.taste-skill/*.png
+.DS_Store
+.taste-skill
