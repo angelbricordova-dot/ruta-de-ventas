@@ -19,7 +19,9 @@ function ProjectsInner() {
   const activities = useStore((s) => s.activities);
   const currency = useStore((s) => s.settings.currency);
   const setScope = useStore((s) => s.setScope);
-  const [editing, setEditing] = useState<string | null | undefined>(undefined);
+  // La hoja queda montada al cerrarse para poder animar su salida; cada apertura la reinicia.
+  const [editing, setEditingState] = useState<{ id: string | null; open: boolean; n: number }>({ id: null, open: false, n: 0 });
+  const setEditing = (id: string | null) => setEditingState((e) => ({ id, open: true, n: e.n + 1 }));
 
   useEffect(() => {
     if (params.get("nuevo")) {
@@ -147,7 +149,14 @@ function ProjectsInner() {
         </div>
       )}
 
-      {editing !== undefined && <ProjectForm projectId={editing} onClose={() => setEditing(undefined)} />}
+      {editing.n > 0 && (
+        <ProjectForm
+          key={editing.n}
+          projectId={editing.id}
+          open={editing.open}
+          onClose={() => setEditingState((e) => ({ ...e, open: false }))}
+        />
+      )}
     </Canvas>
   );
 }

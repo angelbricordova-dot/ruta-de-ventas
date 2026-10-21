@@ -32,6 +32,11 @@
   --pill-neutral-ink: #3d3d3a;
   --pill-accent-bg: #e6eefa;
   --pill-accent-ink: #163a72;
+
+  /* Movimiento (Emil Kowalski): ease-out fuerte para UI, iOS para hojas. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @theme inline {
@@ -137,50 +142,27 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* Hoja inferior / panel lateral: entra desde abajo en el teléfono y desde la derecha en escritorio. */
-@keyframes sheet-up {
-  from {
-    transform: translateY(24px);
-    opacity: 0;
-  }
-}
-@keyframes sheet-left {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-}
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-}
-
-.sheet {
-  animation: sheet-up 240ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-@media (min-width: 768px) {
-  .sheet {
-    animation-name: sheet-left;
-  }
-}
-.backdrop {
-  animation: fade 200ms ease-out;
-}
-
 .press {
-  transition: transform 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out;
+  transition:
+    transform 140ms var(--ease-out),
+    background-color 140ms ease,
+    color 140ms ease;
 }
 .press:active {
   transform: scale(0.97);
 }
 
+/* Barra de avance: escala en vez de ancho, para no recalcular el layout. */
+.progress-fill {
+  transform-origin: left;
+  transition: transform 300ms var(--ease-out);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .sheet,
-  .backdrop {
-    animation: none;
-  }
   .press:active {
     transform: none;
+  }
+  .progress-fill {
+    transition: none;
   }
 }

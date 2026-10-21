@@ -8,7 +8,8 @@ import { useUI } from "@/lib/ui-store";
 import { CHANNEL_LABEL, CHANNEL_VERB, LANE_LABEL, LANE_OF, OUTCOME_LABEL, type Lane } from "@/lib/labels";
 import { clock, greeting, isoDay, money, month, plural } from "@/lib/format";
 import { walkingRoute } from "@/lib/links";
-import { AgendaRow, ContactButton, Due, LogButton } from "@/components/LeadBits";
+import { AgendaRow, ContactButton, Due, LogButton, ROW_MOTION } from "@/components/LeadBits";
+import { AnimatePresence, motion } from "motion/react";
 import { Button, ButtonLink, Empty, Panel, PanelLink, ProjectTag, Segmented } from "@/components/ui";
 import type { Lead, Project } from "@/lib/types";
 
@@ -81,10 +82,12 @@ export default function Home() {
 
   const list = (lane: Lane) =>
     lanes[lane].length ? (
-      <ol className="divide-y divide-rule">
-        {lanes[lane].map((lead) => (
-          <AgendaRow key={lead.id} lead={lead} project={projectMap.get(lead.projectId)} today={today} showProject={scope === "todos"} />
-        ))}
+      <ol className="relative">
+        <AnimatePresence initial={false} mode="popLayout">
+          {lanes[lane].map((lead) => (
+            <AgendaRow key={lead.id} lead={lead} project={projectMap.get(lead.projectId)} today={today} showProject={scope === "todos"} />
+          ))}
+        </AnimatePresence>
       </ol>
     ) : (
       <Empty>{lane === "pie" ? "Ninguna visita." : lane === "telefono" ? "Ninguna llamada." : "Ningún mensaje."}</Empty>
@@ -112,7 +115,7 @@ export default function Home() {
           </Link>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-active">
-          <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${total ? (doneToday.length / total) * 100 : 0}%` }} />
+          <div className="progress-fill h-full rounded-full bg-accent" style={{ transform: `scaleX(${total ? doneToday.length / total : 0})` }} />
         </div>
       </div>
 
@@ -125,7 +128,20 @@ export default function Home() {
         </p>
       )}
 
-      {next && <NextUp lead={next} after={after.length} project={projectMap.get(next.projectId)} today={today} />}
+      {/* Al terminar uno, la tarjeta se va a la izquierda y entra el siguiente: la fila avanza. */}
+      <AnimatePresence initial={false} mode="popLayout">
+        {next && (
+          <motion.div
+            key={next.id}
+            initial={{ opacity: 0, x: 32 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -32 }}
+            transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}
+          >
+            <NextUp lead={next} after={after.length} project={projectMap.get(next.projectId)} today={today} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Panel
         className="mt-8"
@@ -175,15 +191,21 @@ export default function Home() {
 
       {doneToday.length > 0 && (
         <Panel className="mt-8" title="Hechos hoy" count={doneToday.length}>
-          <ol className="divide-y divide-rule">
+          <ol className="relative">
+            <AnimatePresence initial={false} mode="popLayout">
             {doneToday.map((a) => {
               const lead = allLeads.find((l) => l.id === a.leadId);
               return (
-                <li key={a.id}>
+                <motion.li key={a.id} {...ROW_MOTION} className="border-b border-rule last:border-0">
                   <Link href={lead ? `/prospectos/${lead.id}` : "#"} className="flex min-h-[56px] items-center gap-3 py-2">
-                    <span className="inline-flex size-[26px] flex-none items-center justify-center rounded-full bg-accent text-white">
+                    <motion.span
+                      initial={{ scale: 0.6, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", duration: 0.45, bounce: 0.3 }}
+                      className="inline-flex size-[26px] flex-none items-center justify-center rounded-full bg-accent text-white"
+                    >
                       <Check size={14} strokeWidth={2.6} />
-                    </span>
+                    </motion.span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] text-muted line-through decoration-[#c9c9c4] lg:text-[14px]">
                         {lead?.business ?? "Prospecto borrado"}
@@ -198,9 +220,10 @@ export default function Home() {
                       <span className="tabular flex-none text-[13px] text-faint">{clock(a.at)}</span>
                     )}
                   </Link>
-                </li>
+                </motion.li>
               );
             })}
+            </AnimatePresence>
           </ol>
         </Panel>
       )}

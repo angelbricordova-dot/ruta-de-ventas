@@ -54,7 +54,7 @@ interface State extends SyncData {
   setStage: (id: string, stage: Stage) => void;
   schedule: (id: string, next: NextAction | null) => void;
   moveInRoute: (id: string, direction: -1 | 1, date: string) => void;
-  logContact: (input: LogInput) => void;
+  logContact: (input: LogInput) => string | null;
   deleteActivity: (id: string) => void;
 
   saveScript: (script: Omit<Script, "id"> & { id?: string }) => void;
@@ -65,6 +65,10 @@ interface State extends SyncData {
   importBackup: (backup: Backup) => void;
   resetAll: () => void;
   replaceData: (data: SyncData) => void;
+  /** Deshace un contacto registrado: borra la actividad y deja el prospecto como estaba. */
+  undoLog: (activityId: string, before: Lead) => void;
+  /** Devuelve un prospecto a una versión anterior (para "Deshacer"). */
+  restoreLead: (before: Lead) => void;
 }
 
 const fresh = () => {
@@ -199,12 +203,13 @@ export const useStore = create<State>()(
           return { leads: s.leads.map((l) => (order.has(l.id) ? touch(l, { routeOrder: order.get(l.id)! }) : l)) };
         }),
 
-      logContact: ({ leadId, channel, outcome, note, amount, next }) =>
+      logContact: ({ leadId, channel, outcome, note, amount, next }) => {
+        const id = uid();
+        if (!get().leads.some((l) => l.id === leadId)) return null;
         set((s) => {
-          const lead = s.leads.find((l) => l.id === leadId);
-          if (!lead) return {};
+          const lead = s.leads.find((l) => l.id === leadId)!;
           const activity: Activity = {
-            id: uid(),
+            id,
             leadId,
             projectId: lead.projectId,
             channel,
@@ -229,7 +234,9 @@ export const useStore = create<State>()(
                 : l,
             ),
           };
-        }),
+        });
+        return id;
+      },
 
       deleteActivity: (id) => set((s) => ({ activities: s.activities.filter((a) => a.id !== id), deleted: bury(s.deleted, [id]) })),
 
@@ -293,6 +300,18 @@ export const useStore = create<State>()(
         }),
 
       replaceData: (data) => set({ ...data }),
+
+      undoLog: (activityId, before) =>
+        set((s) => ({
+          activities: s.activities.filter((a) => a.id !== activityId),
+          deleted: bury(s.deleted, [activityId]),
+          leads: s.leads.map((l) => (l.id === before.id ? { ...before, updatedAt: nowIso() } : l)),
+        })),
+
+      restoreLead: (before) =>
+        set((s) => ({
+          leads: s.leads.map((l) => (l.id === before.id ? { ...before, updatedAt: nowIso() } : l)),
+        })),
     }),
     {
       name: "ruta-de-ventas",

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
+import { AnimatePresence, motion, useDragControls } from "motion/react";
 import { HUES } from "@/lib/labels";
 import { initials } from "@/lib/format";
 import type { Project } from "@/lib/types";
@@ -286,6 +287,25 @@ export function Chips<T extends string>({
 
 /* Hoja (diálogo) --------------------------------------------------- */
 
+function useMedia(query: string) {
+  return useSyncExternalStore(
+    (cb) => {
+      const m = window.matchMedia(query);
+      m.addEventListener("change", cb);
+      return () => m.removeEventListener("change", cb);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
+}
+
+/** Curva de iOS para hojas (Ionic / Vaul). */
+const DRAWER = { duration: 0.42, ease: [0.32, 0.72, 0, 1] } as const;
+
+/**
+ * Hoja: sube desde abajo en el teléfono (y se cierra arrastrándola hacia abajo)
+ * y entra desde la derecha en escritorio. Sale por donde entró.
+ */
 export function Sheet({
   open,
   onClose,
@@ -302,6 +322,8 @@ export function Sheet({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const desktop = useMedia("(min-width: 768px)");
+  const drag = useDragControls();
 
   useEffect(() => {
     if (!open) return;
@@ -310,53 +332,86 @@ export function Sheet({
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     // En el teléfono no se abre el teclado solo: se enfoca la hoja, no el primer campo.
-    const fine = window.matchMedia("(pointer: fine)").matches;
-    const target = fine
-      ? ref.current?.querySelector<HTMLElement>("input, select, textarea, button:not([data-close])")
-      : ref.current;
-    target?.focus({ preventScroll: true });
+    const id = requestAnimationFrame(() => {
+      const fine = window.matchMedia("(pointer: fine)").matches;
+      const target = fine
+        ? ref.current?.querySelector<HTMLElement>("input, select, textarea, button:not([data-close])")
+        : ref.current;
+      target?.focus({ preventScroll: true });
+    });
     return () => {
+      cancelAnimationFrame(id);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  const hidden = desktop ? { x: "100%" } : { y: "100%" };
+  const shown = desktop ? { x: "0%" } : { y: "0%" };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-stretch md:justify-end">
-      <div className="backdrop absolute inset-0 bg-[rgba(31,32,29,0.32)]" onClick={onClose} aria-hidden />
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabIndex={-1}
-        className={cx(
-          "sheet relative flex max-h-[94dvh] w-full flex-col rounded-t-[26px] bg-raised shadow-[0_12px_40px_rgba(0,0,0,0.16)] outline-none md:m-2 md:max-h-none md:rounded-[22px]",
-          wide ? "md:w-[560px]" : "md:w-[460px]",
-        )}
-      >
-        <span aria-hidden className="mx-auto mt-2 h-1 w-10 flex-none rounded-full bg-control md:hidden" />
-        <header className="flex items-center justify-between gap-3 px-5 pt-2 pb-2 md:pt-5">
-          <h2 className="font-display text-[19px] font-semibold tracking-[-0.01em]">{title}</h2>
-          <button
-            type="button"
-            data-close
+    <AnimatePresence>
+      {open && (
+        <div key="sheet" className="fixed inset-0 z-50 flex items-end justify-center md:items-stretch md:justify-end">
+          <motion.div
+            className="absolute inset-0 bg-[rgba(31,32,29,0.32)]"
             onClick={onClose}
-            className="press -mr-2 inline-flex size-10 items-center justify-center rounded-full text-muted hover:bg-active hover:text-ink"
-            aria-label="Cerrar"
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          />
+          <motion.div
+            ref={ref}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            tabIndex={-1}
+            initial={hidden}
+            animate={shown}
+            exit={hidden}
+            transition={DRAWER}
+            drag={desktop ? false : "y"}
+            dragListener={false}
+            dragControls={drag}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0.04, bottom: 0.9 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 110 || info.velocity.y > 600) onClose();
+            }}
+            className={cx(
+              "relative flex max-h-[94dvh] w-full flex-col rounded-t-[26px] bg-raised shadow-[0_12px_40px_rgba(0,0,0,0.16)] outline-none md:m-2 md:max-h-none md:rounded-[22px]",
+              wide ? "md:w-[560px]" : "md:w-[460px]",
+            )}
           >
-            <X size={18} strokeWidth={1.75} />
-          </button>
-        </header>
-        <div className="flex-1 overflow-y-auto px-5 pb-5">{children}</div>
-        {footer && (
-          <footer className="flex items-center justify-end gap-2 border-t border-rule px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] max-md:[&>*]:h-12 max-md:[&>*]:flex-1 md:px-5">
-            {footer}
-          </footer>
-        )}
-      </div>
-    </div>
+            {/* Zona de arrastre: la agarradera y el título. */}
+            <div onPointerDown={(e) => !desktop && drag.start(e)} className="flex-none touch-none select-none">
+              <span aria-hidden className="mx-auto mt-2 block h-1 w-10 rounded-full bg-control md:hidden" />
+              <header className="flex items-center justify-between gap-3 px-5 pt-2 pb-2 md:pt-5">
+                <h2 className="font-display text-[19px] font-semibold tracking-[-0.01em]">{title}</h2>
+                <button
+                  type="button"
+                  data-close
+                  onClick={onClose}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="press -mr-2 inline-flex size-10 items-center justify-center rounded-full text-muted hover:bg-active hover:text-ink"
+                  aria-label="Cerrar"
+                >
+                  <X size={18} strokeWidth={1.75} />
+                </button>
+              </header>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-5">{children}</div>
+            {footer && (
+              <footer className="flex items-center justify-end gap-2 border-t border-rule px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] max-md:[&>*]:h-12 max-md:[&>*]:flex-1 md:px-5">
+                {footer}
+              </footer>
+            )}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -389,6 +444,7 @@ export function Segmented<T extends string>({
   label: string;
   className?: string;
 }) {
+  const pill = useId();
   return (
     <div role="tablist" aria-label={label} className={cx("flex gap-1 rounded-full bg-active p-1", className)}>
       {options.map((o) => {
@@ -401,12 +457,20 @@ export function Segmented<T extends string>({
             aria-selected={on}
             onClick={() => onChange(o.value)}
             className={cx(
-              "press flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-[14px] font-medium",
-              on ? "bg-raised text-ink shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "text-muted",
+              "relative flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-[14px] font-medium transition-colors duration-150",
+              on ? "text-ink" : "text-muted",
             )}
           >
-            <span className="truncate">{o.label}</span>
-            {o.count !== undefined && <span className={cx("tabular text-[13px]", on ? "text-muted" : "text-faint")}>{o.count}</span>}
+            {/* La pastilla blanca viaja a la pestaña elegida. */}
+            {on && (
+              <motion.span
+                layoutId={pill}
+                className="absolute inset-0 rounded-full bg-raised shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                transition={{ type: "spring", duration: 0.35, bounce: 0 }}
+              />
+            )}
+            <span className="relative truncate">{o.label}</span>
+            {o.count !== undefined && <span className={cx("tabular relative text-[13px]", on ? "text-muted" : "text-faint")}>{o.count}</span>}
           </button>
         );
       })}

@@ -8,7 +8,10 @@ import { CHANNEL_LABEL, LANE_LABEL, LANE_OF, OPEN_STAGES, STAGE_LABEL, type Lane
 import { addDays, capitalize, isoDay, longDay, parseDay, plural, relativeDay } from "@/lib/format";
 import { walkingRoute } from "@/lib/links";
 import { Canvas } from "@/components/Shell";
-import { ContactButton, DoneCircle, Due } from "@/components/LeadBits";
+import { ContactButton, DoneCircle, Due, ROW_MOTION, SwipeRow } from "@/components/LeadBits";
+import { AnimatePresence, motion } from "motion/react";
+import { useUI } from "@/lib/ui-store";
+import { postponeWithUndo } from "@/lib/notify";
 import { Button, Chips, cx, Empty, Input, PageTitle, Panel, ProjectDot, Sheet } from "@/components/ui";
 import type { Channel, Lead } from "@/lib/types";
 
@@ -75,12 +78,13 @@ export default function RoutePage() {
             )}
           </div>
           {shown.length ? (
-            <ul className="divide-y divide-rule lg:max-h-[640px] lg:overflow-y-auto">
+            <ul className="relative lg:max-h-[640px] lg:overflow-y-auto">
+              <AnimatePresence initial={false} mode="popLayout">
               {shown.map((l) => {
                 const project = projects.find((p) => p.id === l.projectId);
                 const options = (["visita", "llamada", "whatsapp", "dm"] as Channel[]).filter((c) => !project || project.channels.includes(c));
                 return (
-                  <li key={l.id} className="py-3">
+                  <motion.li key={l.id} {...ROW_MOTION} className="border-b border-rule py-3 last:border-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <span className="flex items-center gap-1.5">
@@ -109,9 +113,10 @@ export default function RoutePage() {
                         </button>
                       ))}
                     </div>
-                  </li>
+                  </motion.li>
                 );
               })}
+              </AnimatePresence>
             </ul>
           ) : (
             <Empty>{candidates.length ? "Nada coincide con la búsqueda." : "Todos tus prospectos abiertos ya tienen fecha este día."}</Empty>
@@ -185,12 +190,14 @@ export default function RoutePage() {
                 }
               >
                 {items.length ? (
-                  <ol className="divide-y divide-rule">
+                  <ol className="relative">
+                    <AnimatePresence initial={false} mode="popLayout">
                     {items.map((lead, i) => {
                       const project = projectMap.get(lead.projectId);
                       const channel = lead.nextAction!.channel;
                       return (
-                        <li key={lead.id} className="flex min-h-[66px] items-center gap-2 py-1.5 lg:min-h-[60px]">
+                        <motion.li key={lead.id} {...ROW_MOTION} className="border-b border-rule last:border-0">
+                        <RowShell swipe={isToday} lead={lead} channel={channel}>
                           {isToday && <DoneCircle lead={lead} channel={channel} />}
                           <Link href={`/prospectos/${lead.id}`} className="min-w-0 flex-1 py-1">
                             <span className="flex items-center gap-1.5">
@@ -239,9 +246,11 @@ export default function RoutePage() {
                           >
                             <X size={15} strokeWidth={1.75} />
                           </button>
-                        </li>
+                        </RowShell>
+                        </motion.li>
                       );
                     })}
+                    </AnimatePresence>
                   </ol>
                 ) : (
                   <Empty>
@@ -271,5 +280,17 @@ export default function RoutePage() {
         {picker}
       </Sheet>
     </Canvas>
+  );
+}
+
+/** Fila de la ruta: deslizable solo hoy (hecho / mañana); otros días es una fila normal. */
+function RowShell({ swipe, lead, channel, children }: { swipe: boolean; lead: Lead; channel: Channel; children: React.ReactNode }) {
+  const openLog = useUI((s) => s.openLog);
+  const row = <div className="flex min-h-[66px] items-center gap-2 py-1.5 lg:min-h-[60px]">{children}</div>;
+  if (!swipe) return row;
+  return (
+    <SwipeRow onDone={() => openLog(lead.id, channel)} onLater={() => postponeWithUndo(lead)}>
+      {row}
+    </SwipeRow>
   );
 }

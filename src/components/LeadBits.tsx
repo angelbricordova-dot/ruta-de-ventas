@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { AtSign, Check, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { motion, useMotionValue, useMotionValueEvent, useTransform, type HTMLMotionProps } from "motion/react";
+import { AtSign, CalendarClock, Check, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import { CHANNEL_VERB, STAGE_LABEL, STAGE_TONE } from "@/lib/labels";
 import { daysFrom, plural } from "@/lib/format";
 import { fillScript, instagramLink, mailLink, mapLink, telLink, whatsappLink } from "@/lib/links";
+import { haptic } from "@/lib/haptics";
+import { postponeWithUndo } from "@/lib/notify";
 import type { Channel, Lead, Project } from "@/lib/types";
 import { cx, Pill, ProjectDot } from "./ui";
 
@@ -144,6 +148,103 @@ export function DoneCircle({ lead, channel }: { lead: Lead; channel?: Channel })
   );
 }
 
+const SWIPE = 72;
+
+/** Movimiento de las filas en la lista: aparecen, se van y las demás se reacomodan. */
+const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const;
+
+export const ROW_MOTION = {
+  layout: "position",
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, scale: 0.98, transition: { duration: 0.18, ease: EASE_OUT } },
+  transition: { duration: 0.24, ease: EASE_OUT, layout: { duration: 0.3, ease: EASE_IN_OUT } },
+} satisfies HTMLMotionProps<"li">;
+
+/**
+ * Fila que se desliza: a la derecha marca "Hecho", a la izquierda pasa a "Mañana".
+ * Al cruzar el umbral vibra y el fondo se llena de color; si se suelta antes, vuelve con un resorte.
+ */
+export function SwipeRow({
+  children,
+  onDone,
+  onLater,
+  className,
+}: {
+  children: ReactNode;
+  onDone: () => void;
+  onLater?: () => void;
+  className?: string;
+}) {
+  const x = useMotionValue(0);
+  const [armed, setArmed] = useState<"done" | "later" | null>(null);
+  const armedRef = useRef<typeof armed>(null);
+  const dragged = useRef(false);
+  const doneOpacity = useTransform(x, [0, 24], [0, 1]);
+  const laterOpacity = useTransform(x, [-24, 0], [1, 0]);
+
+  useMotionValueEvent(x, "change", (v) => {
+    const next = v > SWIPE ? "done" : v < -SWIPE && onLater ? "later" : null;
+    if (next !== armedRef.current) {
+      armedRef.current = next;
+      setArmed(next);
+      if (next) haptic(8);
+    }
+  });
+
+  return (
+    <div className={cx("relative overflow-hidden", className)}>
+      <motion.div
+        aria-hidden
+        style={{ opacity: doneOpacity }}
+        className={cx(
+          "absolute inset-0 flex items-center gap-2 pl-5 text-[15px] font-medium transition-colors duration-150",
+          armed === "done" ? "bg-accent text-white" : "bg-accent-tint text-accent",
+        )}
+      >
+        <Check size={20} strokeWidth={2.4} /> Hecho
+      </motion.div>
+      {onLater && (
+        <motion.div
+          aria-hidden
+          style={{ opacity: laterOpacity }}
+          className={cx(
+            "absolute inset-0 flex items-center justify-end gap-2 pr-5 text-[15px] font-medium transition-colors duration-150",
+            armed === "later" ? "bg-ink text-white" : "bg-active text-ink",
+          )}
+        >
+          Mañana <CalendarClock size={20} strokeWidth={2} />
+        </motion.div>
+      )}
+      <motion.div
+        style={{ x }}
+        drag="x"
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={{ left: onLater ? 0.65 : 0.08, right: 0.65 }}
+        dragTransition={{ bounceStiffness: 520, bounceDamping: 38 }}
+        onDragStart={() => (dragged.current = true)}
+        onDragEnd={(_, info) => {
+          setTimeout(() => (dragged.current = false), 0);
+          if (info.offset.x > SWIPE || info.velocity.x > 900) onDone();
+          else if (onLater && (info.offset.x < -SWIPE || info.velocity.x < -900)) onLater();
+        }}
+        // Un arrastre no debe abrir la ficha al soltar.
+        onClickCapture={(e) => {
+          if (dragged.current) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+        className="relative bg-raised"
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
 /** Fila de pendiente: círculo para marcar hecho, quién y qué, y el botón para contactar. */
 export function AgendaRow({
   lead,
@@ -156,23 +257,28 @@ export function AgendaRow({
   today: string;
   showProject?: boolean;
 }) {
+  const openLog = useUI((s) => s.openLog);
   const channel = lead.nextAction?.channel ?? "visita";
   const sub = [lead.nextAction?.note || CHANNEL_VERB[channel], lead.zone].filter(Boolean).join(" · ");
   return (
-    <li className="flex min-h-[66px] items-center gap-2 py-1.5 lg:min-h-[60px]">
-      <DoneCircle lead={lead} channel={channel} />
-      <Link href={`/prospectos/${lead.id}`} className="min-w-0 flex-1 py-1">
-        <span className="flex items-center gap-2">
-          <span className="truncate text-[16px] font-medium lg:text-[14px]">{lead.business}</span>
-          {showProject && <ProjectDot project={project} size={7} />}
-        </span>
-        <span className="mt-0.5 flex items-center gap-2 text-[14px] text-muted lg:text-[12.5px]">
-          {lead.nextAction && <Due date={lead.nextAction.date} today={today} />}
-          <span className="truncate">{sub}</span>
-        </span>
-      </Link>
-      <ContactButton lead={lead} channel={channel} />
-    </li>
+    <motion.li {...ROW_MOTION} className="border-b border-rule last:border-0">
+      <SwipeRow onDone={() => openLog(lead.id, channel)} onLater={() => postponeWithUndo(lead)}>
+        <div className="flex min-h-[66px] items-center gap-2 py-1.5 lg:min-h-[60px]">
+          <DoneCircle lead={lead} channel={channel} />
+          <Link href={`/prospectos/${lead.id}`} draggable={false} className="min-w-0 flex-1 py-1">
+            <span className="flex items-center gap-2">
+              <span className="truncate text-[16px] font-medium lg:text-[14px]">{lead.business}</span>
+              {showProject && <ProjectDot project={project} size={7} />}
+            </span>
+            <span className="mt-0.5 flex items-center gap-2 text-[14px] text-muted lg:text-[12.5px]">
+              {lead.nextAction && <Due date={lead.nextAction.date} today={today} />}
+              <span className="truncate">{sub}</span>
+            </span>
+          </Link>
+          <ContactButton lead={lead} channel={channel} />
+        </div>
+      </SwipeRow>
+    </motion.li>
   );
 }
 

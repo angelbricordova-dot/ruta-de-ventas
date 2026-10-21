@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
+import { LayoutGroup, motion } from "motion/react";
+import { haptic } from "@/lib/haptics";
 import { inScope, useProjectMap, useStore } from "@/lib/store";
 import { CHANNEL_LABEL, STAGE_LABEL } from "@/lib/labels";
 import { isoDay, money, plural, relativeDay } from "@/lib/format";
@@ -21,6 +23,7 @@ export default function PipelinePage() {
   const projectMap = useProjectMap();
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<Stage | null>(null);
+  const [moving, setMoving] = useState<string | null>(null);
 
   const today = isoDay();
   const leads = inScope(allLeads, scope);
@@ -48,6 +51,7 @@ export default function PipelinePage() {
       />
       <p className="-mt-4 mb-5 hidden text-[13px] text-faint md:block">Arrastra una tarjeta para cambiarla de etapa.</p>
 
+      <LayoutGroup>
       <div className="scroll-x -mx-4 flex snap-x snap-mandatory gap-3 px-4 pb-4 md:mx-0 md:grid md:snap-none md:grid-cols-5 md:px-0">
         {COLUMNS.map((stage) => {
           const cards = leads
@@ -97,11 +101,14 @@ export default function PipelinePage() {
                         setDragging(null);
                         setOver(null);
                       }}
-                      className={cx(
-                        "group rounded-[14px] border border-border bg-raised p-3 transition-opacity md:cursor-grab",
-                        dragging === l.id && "opacity-40",
-                      )}
+                      className={cx("transition-opacity md:cursor-grab", dragging === l.id && "opacity-40")}
                     >
+                      {/* La tarjeta viaja a su nueva columna al cambiar de etapa. */}
+                      <motion.div
+                        layoutId={l.id}
+                        transition={{ layout: { duration: 0.35, ease: [0.77, 0, 0.175, 1] } }}
+                        className={cx("group relative rounded-[14px] border border-border bg-raised p-3", moving === l.id && "z-20 shadow-[0_8px_24px_rgba(0,0,0,0.12)]")}
+                      >
                       <div className="flex items-start gap-2">
                         <Link href={`/prospectos/${l.id}`} className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5">
@@ -113,7 +120,12 @@ export default function PipelinePage() {
                         {nextStage && (
                           <button
                             type="button"
-                            onClick={() => setStage(l.id, nextStage)}
+                            onClick={() => {
+                              setMoving(l.id);
+                              setTimeout(() => setMoving((m) => (m === l.id ? null : m)), 450);
+                              setStage(l.id, nextStage);
+                              haptic(8);
+                            }}
                             className="press -mt-1 -mr-1 inline-flex size-8 flex-none items-center justify-center rounded-full text-faint hover:bg-active hover:text-ink"
                             aria-label={`Pasar a ${STAGE_LABEL[nextStage]}`}
                             title={`Pasar a ${STAGE_LABEL[nextStage]}`}
@@ -136,6 +148,7 @@ export default function PipelinePage() {
                         <span className="tabular flex-none text-[13px]">{l.value > 0 ? money(l.value, currency) : <span className="text-faint">—</span>}</span>
                       </div>
                       {l.nextAction && <Due date={l.nextAction.date} today={today} />}
+                      </motion.div>
                     </li>
                   );
                 })}
@@ -149,6 +162,7 @@ export default function PipelinePage() {
           );
         })}
       </div>
+      </LayoutGroup>
     </Canvas>
   );
 }

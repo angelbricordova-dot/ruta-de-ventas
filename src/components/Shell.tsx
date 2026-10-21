@@ -24,6 +24,8 @@ import { LeadForm } from "./LeadForm";
 import { LogContact } from "./LogContact";
 import { SyncBadge } from "./Cloud";
 import { startSync } from "@/lib/sync";
+import { MotionConfig } from "motion/react";
+import { Toaster } from "sonner";
 
 const NAV = [
   { href: "/", label: "Hoy", icon: Home },
@@ -312,15 +314,33 @@ export function Shell({ children }: { children: ReactNode }) {
   const log = useUI((s) => s.log);
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="flex min-h-dvh">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <PhoneBars />
         <main className="flex-1 pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-16">{hydrated ? children : <Loading />}</main>
       </div>
-      {hydrated && leadForm.open && <LeadForm />}
-      {hydrated && log.open && <LogContact />}
+      {hydrated && leadForm.nonce > 0 && <LeadForm key={`lead-${leadForm.nonce}`} />}
+      {hydrated && log.nonce > 0 && <LogContact key={`log-${log.nonce}`} />}
+      <Toaster
+        position="top-center"
+        offset={{ top: 24 }}
+        mobileOffset={{ top: "calc(env(safe-area-inset-top) + 64px)", left: 12, right: 12 }}
+        duration={4500}
+        toastOptions={{
+          style: {
+            fontFamily: "var(--font-sans)",
+            borderRadius: 18,
+            border: "1px solid var(--border)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.10)",
+            fontSize: 15,
+          },
+          classNames: { actionButton: "!bg-ink !text-white !rounded-full !h-8 !px-3.5 !text-[13px] !font-medium" },
+        }}
+      />
     </div>
+    </MotionConfig>
   );
 }
 

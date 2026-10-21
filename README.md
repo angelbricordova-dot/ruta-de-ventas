@@ -21,6 +21,14 @@ Proyectos iniciales:
 | Guiones | Textos para llamadas, visitas, WhatsApp y DMs con `{negocio}`, `{contacto}`, `{rubro}`, `{zona}`, `{vendedor}`. |
 | Ajustes | Nombre, ciudad para Maps, moneda, copia de seguridad y datos de ejemplo. |
 
+## Gestos
+
+- **Deslizar un pendiente a la derecha**: hecho (abre "¿Cómo te fue?").
+- **Deslizar a la izquierda**: pasa a mañana. Sale un aviso con **Deshacer**.
+- **Tocar el círculo**: marcar como hecho.
+- **Arrastrar una hoja hacia abajo**: cerrarla.
+- En el teléfono vibra al confirmar (Android). Si el teléfono tiene "Reducir movimiento", las animaciones se suavizan.
+
 ## Datos y nube
 
 Cada dispositivo trabaja con su copia local, así que la app funciona sin señal. Con la nube activada,

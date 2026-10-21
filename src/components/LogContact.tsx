@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import { logWithUndo } from "@/lib/notify";
 import { useUI } from "@/lib/ui-store";
 import { CHANNEL_LABEL, OUTCOME_LABEL, OUTCOMES, STAGE_LABEL, stageAfter } from "@/lib/labels";
 import { addDays, isoDay, relativeDay } from "@/lib/format";
@@ -35,11 +36,10 @@ function Line({ label, value, open, onToggle }: { label: string; value: string; 
 }
 
 export function LogContact() {
-  const { leadId, channel: presetChannel } = useUI((s) => s.log);
+  const { leadId, channel: presetChannel, open } = useUI((s) => s.log);
   const close = useUI((s) => s.closeLog);
   const lead = useStore((s) => s.leads.find((l) => l.id === leadId));
   const project = useStore((s) => s.projects.find((p) => p.id === lead?.projectId));
-  const logContact = useStore((s) => s.logContact);
 
   const channels: Channel[] = project?.channels.length ? project.channels : ["visita", "llamada", "whatsapp", "dm", "email"];
   const [channel, setChannel] = useState<Channel>(presetChannel ?? lead?.nextAction?.channel ?? channels[0]);
@@ -62,7 +62,7 @@ export function LogContact() {
 
   const save = () => {
     if (!outcome) return;
-    logContact({
+    logWithUndo({
       leadId: lead.id,
       channel,
       outcome,
@@ -75,7 +75,7 @@ export function LogContact() {
 
   return (
     <Sheet
-      open
+      open={open}
       onClose={close}
       title="¿Cómo te fue?"
       footer={

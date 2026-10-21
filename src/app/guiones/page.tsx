@@ -11,7 +11,7 @@ import type { Channel, Script } from "@/lib/types";
 
 const VARS = ["{negocio}", "{contacto}", "{rubro}", "{zona}", "{vendedor}"];
 
-function ScriptForm({ script, onClose }: { script: Script | null; onClose: () => void }) {
+function ScriptForm({ script, open, onClose }: { script: Script | null; open: boolean; onClose: () => void }) {
   const projects = useStore((s) => s.projects);
   const scope = useStore((s) => s.scope);
   const saveScript = useStore((s) => s.saveScript);
@@ -29,7 +29,7 @@ function ScriptForm({ script, onClose }: { script: Script | null; onClose: () =>
 
   return (
     <Sheet
-      open
+      open={open}
       onClose={onClose}
       wide
       title={script ? "Editar guion" : "Nuevo guion"}
@@ -105,7 +105,8 @@ export default function ScriptsPage() {
   const all = useStore((s) => s.scripts);
   const seller = useStore((s) => s.settings.sellerName);
   const projectMap = useProjectMap();
-  const [editing, setEditing] = useState<Script | null | undefined>(undefined);
+  const [editing, setEditingState] = useState<{ script: Script | null; open: boolean; n: number }>({ script: null, open: false, n: 0 });
+  const setEditing = (script: Script | null) => setEditingState((e) => ({ script, open: true, n: e.n + 1 }));
   const [copied, setCopied] = useState<string | null>(null);
 
   const scripts =
@@ -176,7 +177,14 @@ export default function ScriptsPage() {
         </div>
       )}
 
-      {editing !== undefined && <ScriptForm script={editing} onClose={() => setEditing(undefined)} />}
+      {editing.n > 0 && (
+        <ScriptForm
+          key={editing.n}
+          script={editing.script}
+          open={editing.open}
+          onClose={() => setEditingState((e) => ({ ...e, open: false }))}
+        />
+      )}
     </Canvas>
   );
 }

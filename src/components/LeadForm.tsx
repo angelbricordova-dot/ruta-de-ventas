@@ -13,7 +13,7 @@ type Draft = Omit<Lead, "id" | "createdAt" | "updatedAt" | "routeOrder">;
 
 export function LeadForm() {
   const router = useRouter();
-  const { leadId, defaults } = useUI((s) => s.leadForm);
+  const { leadId, defaults, open } = useUI((s) => s.leadForm);
   const close = useUI((s) => s.closeLeadForm);
   const projects = useStore((s) => s.projects);
   const leads = useStore((s) => s.leads);
@@ -77,7 +77,7 @@ export function LeadForm() {
 
   return (
     <Sheet
-      open
+      open={open}
       onClose={close}
       wide
       title={existing ? "Editar prospecto" : "Nuevo prospecto"}

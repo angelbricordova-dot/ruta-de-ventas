@@ -16,7 +16,7 @@ const MODE_CHANNELS: Record<ProjectMode, Channel[]> = {
   mixto: ["visita", "llamada", "whatsapp", "dm"],
 };
 
-export function ProjectForm({ projectId, onClose }: { projectId: string | null; onClose: () => void }) {
+export function ProjectForm({ projectId, open, onClose }: { projectId: string | null; open: boolean; onClose: () => void }) {
   const projects = useStore((s) => s.projects);
   const leadCount = useStore((s) => s.leads.filter((l) => l.projectId === projectId).length);
   const saveProject = useStore((s) => s.saveProject);
@@ -68,7 +68,7 @@ export function ProjectForm({ projectId, onClose }: { projectId: string | null; 
 
   return (
     <Sheet
-      open
+      open={open}
       onClose={onClose}
       wide
       title={existing ? "Editar proyecto" : "Nuevo proyecto"}
