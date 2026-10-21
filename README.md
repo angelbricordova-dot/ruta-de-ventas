@@ -21,6 +21,16 @@ Proyectos iniciales:
 | Guiones | Textos para llamadas, visitas, WhatsApp y DMs con `{negocio}`, `{contacto}`, `{rubro}`, `{zona}`, `{vendedor}`. |
 | Ajustes | Nombre, ciudad para Maps, moneda, copia de seguridad y datos de ejemplo. |
 
+## Bienvenida y seguridad
+
+- La primera vez en cada dispositivo aparece una guía: PIN de 4 números, Face ID o huella,
+  conectar la nube, empezar vacío o con ejemplos, e instalar en la pantalla de inicio.
+- Después, cada vez que se abre la app (o se vuelve a ella tras 1 minuto; se cambia en Ajustes)
+  pide Face ID o el PIN. Tras 5 intentos fallidos espera 30 segundos.
+- El PIN y Face ID viven solo en ese dispositivo. Es una pantalla de bloqueo, no cifrado.
+- **Ajustes → Seguridad**: cambiar o quitar el PIN, activar Face ID, bloquear ahora.
+  **Ajustes → Bienvenida** vuelve a mostrar la guía.
+
 ## Gestos
 
 - **Deslizar un pendiente a la derecha**: hecho (abre "¿Cómo te fue?").

@@ -7,6 +7,8 @@ import { isoDay } from "@/lib/format";
 import { Canvas } from "@/components/Shell";
 import { Button, Field, Input, PageTitle, Panel } from "@/components/ui";
 import { CloudPanel } from "@/components/Cloud";
+import { InstallPanel, SecurityPanel } from "@/components/Security";
+import { useLock } from "@/lib/lock";
 import { useSync } from "@/lib/sync";
 
 export default function SettingsPage() {
@@ -53,7 +55,11 @@ export default function SettingsPage() {
       <PageTitle title="Ajustes" />
 
       <div className="flex flex-col gap-10">
+        <SecurityPanel />
+
         <CloudPanel />
+
+        <InstallPanel />
 
         <Panel title="Perfil">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -110,6 +116,13 @@ export default function SettingsPage() {
           </p>
           <div className="mt-4">
             {demoCount ? <Button onClick={clearDemo}>Borrar ejemplos</Button> : <Button onClick={loadDemo}>Cargar ejemplos</Button>}
+          </div>
+        </Panel>
+
+        <Panel title="Bienvenida">
+          <p className="text-[14px] text-muted">Vuelve a ver la guía de inicio: PIN, nube e instalación.</p>
+          <div className="mt-4">
+            <Button onClick={() => useLock.setState({ onboarded: false })}>Ver la bienvenida otra vez</Button>
           </div>
         </Panel>
 

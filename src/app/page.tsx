@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowUpRight, Check, ChevronRight, Plus } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, Plus, Smartphone } from "lucide-react";
+import { useInstall } from "@/lib/install";
 import { agendaFor, inScope, useProjectMap, useStore } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import { CHANNEL_LABEL, CHANNEL_VERB, LANE_LABEL, LANE_OF, OUTCOME_LABEL, type Lane } from "@/lib/labels";
@@ -31,6 +32,8 @@ export default function Home() {
   const openLeadForm = useUI((s) => s.openLeadForm);
   const projectMap = useProjectMap();
   const [laneTab, setLaneTab] = useState<Lane | null>(null);
+  const installed = useInstall((s) => s.installed);
+  const platform = useInstall((s) => s.platform);
 
   const today = isoDay();
   const now = new Date();
@@ -118,6 +121,14 @@ export default function Home() {
           <div className="progress-fill h-full rounded-full bg-accent" style={{ transform: `scaleX(${total ? doneToday.length / total : 0})` }} />
         </div>
       </div>
+
+      {!installed && platform !== "desktop" && (
+        <Link href="/ajustes#instalar" className="mb-5 flex items-center gap-3 rounded-[16px] bg-accent-tint px-4 py-3 text-[14px] text-[#163a72]">
+          <Smartphone size={18} strokeWidth={1.75} className="flex-none" />
+          <span className="flex-1">Ponla en tu pantalla de inicio para abrirla como app.</span>
+          <span className="font-semibold">Ver cómo</span>
+        </Link>
+      )}
 
       {hasDemo && (
         <p className="mb-5 text-[14px] text-muted">

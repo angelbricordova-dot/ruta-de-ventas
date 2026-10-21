@@ -23,8 +23,14 @@ import { Button, cx, ProjectDot, Sheet } from "./ui";
 import { LeadForm } from "./LeadForm";
 import { LogContact } from "./LogContact";
 import { SyncBadge } from "./Cloud";
+import { Mark } from "./Mark";
+export { Mark };
 import { startSync } from "@/lib/sync";
-import { MotionConfig } from "motion/react";
+import { AnimatePresence, MotionConfig } from "motion/react";
+import { startLock, useLock } from "@/lib/lock";
+import { startInstall } from "@/lib/install";
+import { LockScreen, Welcome } from "./LockScreen";
+import { Onboarding } from "./Onboarding";
 import { Toaster } from "sonner";
 
 const NAV = [
@@ -37,21 +43,6 @@ const NAV = [
 ];
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
-
-/** Marca: las paradas de la ruta suben como una venta y terminan en el pin del cliente. */
-export function Mark({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden className="flex-none">
-      <rect width="64" height="64" rx="16" fill="#2257a8" />
-      <path d="M12 48 L24 36 L32 42 L46 26" fill="none" stroke="#9cc2f5" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M46 31c0 0-8-7.7-8-13.6a8 8 0 0 1 16 0c0 5.9-8 13.6-8 13.6z" fill="#fff" />
-      <circle cx="46" cy="17.6" r="3" fill="#2257a8" />
-      <circle cx="12" cy="48" r="3.4" fill="#fff" />
-      <circle cx="24" cy="36" r="3.4" fill="#fff" />
-      <circle cx="32" cy="42" r="3.4" fill="#fff" />
-    </svg>
-  );
-}
 
 function useHydrated() {
   const [ok, setOk] = useState(false);
@@ -312,6 +303,34 @@ export function Shell({ children }: { children: ReactNode }) {
   const hydrated = useHydrated();
   const leadForm = useUI((s) => s.leadForm);
   const log = useUI((s) => s.log);
+  const lockReady = useLock((s) => s.ready);
+  const locked = useLock((s) => s.locked);
+  const onboarded = useLock((s) => s.onboarded);
+  const hasPin = useLock((s) => !!s.pinHash);
+  const [splash, setSplash] = useState(false);
+
+  useEffect(() => {
+    startLock();
+    startInstall();
+  }, []);
+
+  // Sin PIN, una bienvenida breve al abrir la app (una vez por sesión).
+  useEffect(() => {
+    if (!lockReady || !onboarded || hasPin) return;
+    try {
+      if (sessionStorage.getItem("ruta-de-ventas:hola")) return;
+      sessionStorage.setItem("ruta-de-ventas:hola", "1");
+    } catch {
+      /* sin sessionStorage */
+    }
+    setSplash(true);
+    const t = setTimeout(() => setSplash(false), 1100);
+    return () => clearTimeout(t);
+  }, [lockReady, onboarded, hasPin]);
+
+  const ready = hydrated && lockReady;
+  // Con candado puesto, la app no se dibuja detrás: nada se asoma.
+  const hidden = !ready || !onboarded || locked;
 
   return (
     <MotionConfig reducedMotion="user">
@@ -319,10 +338,15 @@ export function Shell({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <PhoneBars />
-        <main className="flex-1 pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-16">{hydrated ? children : <Loading />}</main>
+        <main className="flex-1 pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-16">{hidden ? <Loading /> : children}</main>
       </div>
-      {hydrated && leadForm.nonce > 0 && <LeadForm key={`lead-${leadForm.nonce}`} />}
-      {hydrated && log.nonce > 0 && <LogContact key={`log-${log.nonce}`} />}
+      {!hidden && leadForm.nonce > 0 && <LeadForm key={`lead-${leadForm.nonce}`} />}
+      {!hidden && log.nonce > 0 && <LogContact key={`log-${log.nonce}`} />}
+      {ready && !onboarded && <Onboarding />}
+      <AnimatePresence>
+        {ready && onboarded && locked && <LockScreen key="lock" />}
+        {splash && !locked && <Welcome key="hola" onDone={() => setSplash(false)} />}
+      </AnimatePresence>
       <Toaster
         position="top-center"
         offset={{ top: 24 }}
