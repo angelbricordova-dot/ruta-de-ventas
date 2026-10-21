@@ -78,7 +78,7 @@ export default function LeadPage() {
         <ChevronLeft size={16} strokeWidth={1.75} /> Prospectos
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 md:mb-8">
+      <div className="mb-5 flex items-start justify-between gap-3 md:mb-8">
         <div className="flex min-w-0 items-center gap-4">
           <Avatar name={lead.business} project={project} size={52} />
           <div className="min-w-0">
@@ -89,8 +89,10 @@ export default function LeadPage() {
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => openLeadForm(lead.id)}>Editar</Button>
+        <div className="flex flex-none gap-2">
+          <Button size="sm" variant="ghost" onClick={() => openLeadForm(lead.id)} className="h-10 text-[15px] text-accent lg:h-8 lg:text-[13px]">
+            Editar
+          </Button>
           <Button variant="primary" onClick={() => openLog(lead.id)} className="max-lg:hidden">
             Registrar contacto
           </Button>
@@ -103,11 +105,11 @@ export default function LeadPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="flex flex-col gap-4 lg:col-span-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <div className="flex flex-col gap-8 lg:col-span-8">
           <Panel title="Próximo contacto">
             {next ? (
-              <div className="rounded-[14px] border border-border bg-raised p-4">
+              <div className="rounded-[18px] bg-surface p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="text-[16px] font-medium">
                     {CHANNEL_VERB[next.channel]} · {relativeDay(next.date, today)}
@@ -228,38 +230,18 @@ export default function LeadPage() {
           )}
         </div>
 
-        <div className="flex flex-col gap-4 lg:col-span-4">
+        <div className="flex flex-col gap-8 lg:col-span-4">
           <Panel title="Etapa">
-            <ol className="flex flex-col gap-1">
-              {STAGES.map((s) => {
-                const on = lead.stage === s;
-                return (
-                  <li key={s}>
-                    <button
-                      type="button"
-                      onClick={() => setStage(lead.id, s)}
-                      aria-pressed={on}
-                      className={cx(
-                        "press flex h-10 w-full items-center gap-3 rounded-[10px] px-3 text-left text-[14px]",
-                        on ? "bg-raised font-medium ring-1 ring-ink" : "text-muted hover:bg-raised hover:text-ink",
-                      )}
-                    >
-                      <span
-                        className={cx(
-                          "size-2 flex-none rounded-full",
-                          on ? (s === "ganado" ? "bg-positive" : s === "perdido" ? "bg-faint" : "bg-ink") : "bg-control",
-                        )}
-                      />
-                      {STAGE_LABEL[s]}
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
+            <Chips
+              label="Etapa"
+              value={lead.stage}
+              onChange={(st) => setStage(lead.id, st)}
+              options={STAGES.map((st) => ({ value: st, label: STAGE_LABEL[st] }))}
+            />
           </Panel>
 
           <Panel title="Datos">
-            <dl className="rounded-[12px] bg-raised px-3 py-1 ring-1 ring-border">
+            <dl>
               {facts.map(([k, v]) => (
                 <div key={k} className="flex min-h-9 items-center justify-between gap-3 border-b border-rule py-1.5 last:border-0">
                   <dt className="flex-none text-[13px] text-muted">{k}</dt>

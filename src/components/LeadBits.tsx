@@ -8,7 +8,7 @@ import { CHANNEL_VERB, STAGE_LABEL, STAGE_TONE } from "@/lib/labels";
 import { daysFrom, plural } from "@/lib/format";
 import { fillScript, instagramLink, mailLink, mapLink, telLink, whatsappLink } from "@/lib/links";
 import type { Channel, Lead, Project } from "@/lib/types";
-import { Avatar, cx, Pill, ProjectDot } from "./ui";
+import { cx, Pill, ProjectDot } from "./ui";
 
 const ICON: Record<Channel, typeof Phone> = {
   visita: MapPin,
@@ -61,7 +61,8 @@ export function ContactButton({
   const Icon = ICON[channel];
   const text = ACTION_LABEL[channel];
   const cls = cx(
-    "press inline-flex items-center justify-center gap-2 rounded-full border border-border bg-raised text-ink hover:border-control",
+    "press inline-flex items-center justify-center gap-2 rounded-full text-ink",
+    big ? "bg-raised hover:bg-white" : "bg-active hover:bg-[#e2e2dd]",
     big
       ? "h-[52px] flex-1 px-4 text-[16px] font-medium"
       : label
@@ -125,46 +126,52 @@ export function Due({ date, today }: { date: string; today: string }) {
   return <span className="flex-none text-[12px] font-medium whitespace-nowrap text-negative">Vencido hace {plural(-diff, "día", "días")}</span>;
 }
 
-/**
- * Fila de la ruta: quién, qué hacer y el botón para hacerlo.
- * 63px de alto, una tarjeta un paso más clara que el panel.
- */
+/** Círculo para marcar un pendiente como hecho (abre "¿Cómo te fue?"). */
+export function DoneCircle({ lead, channel }: { lead: Lead; channel?: Channel }) {
+  const openLog = useUI((s) => s.openLog);
+  return (
+    <button
+      type="button"
+      onClick={() => openLog(lead.id, channel ?? null)}
+      aria-label={`Marcar como hecho: ${lead.business}`}
+      title="Marcar como hecho"
+      className="group -ml-1.5 inline-flex size-11 flex-none items-center justify-center rounded-full"
+    >
+      <span className="inline-flex size-[26px] items-center justify-center rounded-full border-[1.5px] border-[#bdbdb7] text-white transition-colors group-hover:border-accent group-hover:bg-accent group-active:scale-90">
+        <Check size={14} strokeWidth={2.6} className="opacity-0 transition-opacity group-hover:opacity-100" />
+      </span>
+    </button>
+  );
+}
+
+/** Fila de pendiente: círculo para marcar hecho, quién y qué, y el botón para contactar. */
 export function AgendaRow({
   lead,
   project,
   today,
-  order,
   showProject = true,
 }: {
   lead: Lead;
   project: Project | undefined;
   today: string;
-  order?: number;
   showProject?: boolean;
 }) {
   const channel = lead.nextAction?.channel ?? "visita";
   const sub = [lead.nextAction?.note || CHANNEL_VERB[channel], lead.zone].filter(Boolean).join(" · ");
   return (
-    <li className="flex min-h-[68px] items-center gap-3 rounded-[16px] border border-border bg-raised py-2.5 pr-2.5 pl-3 lg:min-h-[63px] lg:rounded-[14px]">
-      {order !== undefined ? (
-        <span className="tabular inline-flex size-7 flex-none items-center justify-center rounded-full border border-control text-[12px] font-semibold text-muted">
-          {order}
-        </span>
-      ) : (
-        <Avatar name={lead.business} project={project} size={32} />
-      )}
-      <Link href={`/prospectos/${lead.id}`} className="min-w-0 flex-1">
+    <li className="flex min-h-[66px] items-center gap-2 py-1.5 lg:min-h-[60px]">
+      <DoneCircle lead={lead} channel={channel} />
+      <Link href={`/prospectos/${lead.id}`} className="min-w-0 flex-1 py-1">
         <span className="flex items-center gap-2">
-          <span className="truncate text-[15px] font-medium lg:text-[14px]">{lead.business}</span>
-          {showProject && order !== undefined && <ProjectDot project={project} size={7} />}
+          <span className="truncate text-[16px] font-medium lg:text-[14px]">{lead.business}</span>
+          {showProject && <ProjectDot project={project} size={7} />}
         </span>
-        <span className="mt-0.5 flex items-center gap-2 text-[13px] text-muted lg:text-[12.5px]">
+        <span className="mt-0.5 flex items-center gap-2 text-[14px] text-muted lg:text-[12.5px]">
           {lead.nextAction && <Due date={lead.nextAction.date} today={today} />}
           <span className="truncate">{sub}</span>
         </span>
       </Link>
       <ContactButton lead={lead} channel={channel} />
-      <LogButton lead={lead} channel={channel} compact />
     </li>
   );
 }

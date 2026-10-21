@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { inScope, useProjectMap, useStore } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import { CHANNEL_LABEL, OPEN_STAGES, STAGE_LABEL, STAGES } from "@/lib/labels";
 import { isoDay, money, plural, relativeDay } from "@/lib/format";
 import { Canvas } from "@/components/Shell";
 import { Due, StagePill } from "@/components/LeadBits";
-import { Avatar, Button, Chips, Empty, Input, PageTitle, ProjectDot, Select } from "@/components/ui";
+import { Avatar, Button, Chips, cx, Empty, Input, PageTitle, ProjectDot, Select } from "@/components/ui";
 import type { Stage } from "@/lib/types";
 
 type StageFilter = "abiertos" | "todos" | Stage;
@@ -29,6 +29,7 @@ function ProspectsInner() {
   const [stage, setStage] = useState<StageFilter>((params.get("etapa") as StageFilter) || "abiertos");
   const [niche, setNiche] = useState("");
   const [zone, setZone] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   // ?proyecto=… llega desde la pantalla de inicio o de proyectos.
   useEffect(() => {
@@ -77,22 +78,36 @@ function ProspectsInner() {
 
       <div className="mb-4 flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
-          <label className="relative min-w-[220px] flex-1 md:max-w-[320px]">
+          <label className="relative min-w-0 flex-1 md:max-w-[320px]">
             <Search size={16} strokeWidth={1.75} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar negocio, persona, teléfono…" className="pl-9" aria-label="Buscar" />
           </label>
-          <Select value={niche} onChange={(e) => setNiche(e.target.value)} aria-label="Rubro" className="min-w-[150px] flex-1 md:w-[190px] md:flex-none">
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            aria-expanded={showFilters}
+            aria-label="Filtros"
+            className={cx(
+              "press relative inline-flex size-11 flex-none items-center justify-center rounded-full md:hidden",
+              showFilters || niche || zone ? "bg-ink text-white" : "bg-active text-ink",
+            )}
+          >
+            <SlidersHorizontal size={18} strokeWidth={1.75} />
+          </button>
+          <div className={cx("w-full gap-2 md:flex md:w-auto", showFilters ? "flex" : "hidden")}>
+          <Select value={niche} onChange={(e) => setNiche(e.target.value)} aria-label="Rubro" className="min-w-0 flex-1 md:w-[190px] md:flex-none">
             <option value="">Todos los rubros</option>
             {niches.map((n) => (
               <option key={n}>{n}</option>
             ))}
           </Select>
-          <Select value={zone} onChange={(e) => setZone(e.target.value)} aria-label="Zona" className="min-w-[140px] flex-1 md:w-[170px] md:flex-none">
+          <Select value={zone} onChange={(e) => setZone(e.target.value)} aria-label="Zona" className="min-w-0 flex-1 md:w-[170px] md:flex-none">
             <option value="">Todas las zonas</option>
             {zones.map((z) => (
               <option key={z}>{z}</option>
             ))}
           </Select>
+          </div>
         </div>
         <Chips
           label="Etapa"
@@ -121,16 +136,16 @@ function ProspectsInner() {
           {scoped.length === 0 ? "Todavía no tienes prospectos en este proyecto." : "Ningún prospecto coincide con estos filtros."}
         </Empty>
       ) : (
-        <div className="overflow-hidden rounded-[22px] border border-border">
+        <div>
           <table className="w-full table-fixed border-collapse text-left">
             <thead className="hidden md:table-header-group">
               <tr className="h-10 border-b border-border text-[12px] text-muted">
-                <th className="w-[36%] pl-4 font-normal">Negocio</th>
+                <th className="w-[36%] font-normal">Negocio</th>
                 <th className="hidden w-[16%] font-normal lg:table-cell">Rubro</th>
                 <th className="w-[12%] font-normal">Zona</th>
                 <th className="w-[15%] font-normal">Etapa</th>
                 <th className="w-[15%] font-normal">Próximo contacto</th>
-                <th className="w-[10%] pr-4 text-right font-normal">Valor</th>
+                <th className="w-[10%] text-right font-normal">Valor</th>
               </tr>
             </thead>
             <tbody>
@@ -140,9 +155,9 @@ function ProspectsInner() {
                   <tr
                     key={l.id}
                     onClick={() => router.push(`/prospectos/${l.id}`)}
-                    className="cursor-pointer border-b border-rule last:border-0 hover:bg-[#fafaf8]"
+                    className="cursor-pointer border-b border-rule last:border-0 active:bg-surface md:hover:bg-[#fafaf8]"
                   >
-                    <td className="py-3 pl-4 pr-3 md:py-2.5">
+                    <td className="py-3 pr-3 md:py-2.5">
                       <div className="flex items-center gap-3">
                         <Avatar name={l.business} project={project} size={36} />
                         <div className="min-w-0 flex-1">
@@ -156,11 +171,14 @@ function ProspectsInner() {
                           </span>
                           <span className="mt-1.5 flex flex-wrap items-center gap-2 md:hidden">
                             <StagePill lead={l} />
-                            {l.nextAction && (
-                              <span className="text-[12.5px] text-muted">
-                                {CHANNEL_LABEL[l.nextAction.channel]} · {relativeDay(l.nextAction.date, today)}
-                              </span>
-                            )}
+                            {l.nextAction &&
+                              (l.nextAction.date < today ? (
+                                <Due date={l.nextAction.date} today={today} />
+                              ) : (
+                                <span className="text-[13px] text-muted">
+                                  {CHANNEL_LABEL[l.nextAction.channel]} · {relativeDay(l.nextAction.date, today)}
+                                </span>
+                              ))}
                           </span>
                         </div>
                         {l.value > 0 && <span className="tabular self-start text-[14px] md:hidden">{money(l.value, currency)}</span>}
@@ -184,7 +202,7 @@ function ProspectsInner() {
                         <span className="text-faint">—</span>
                       )}
                     </td>
-                    <td className="tabular hidden pr-4 text-right text-[14px] md:table-cell">
+                    <td className="tabular hidden text-right text-[14px] md:table-cell">
                       {l.value > 0 ? money(l.value, currency) : <span className="text-faint">—</span>}
                     </td>
                   </tr>

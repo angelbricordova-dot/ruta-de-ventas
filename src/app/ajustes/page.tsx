@@ -52,7 +52,7 @@ export default function SettingsPage() {
     <Canvas narrow>
       <PageTitle title="Ajustes" />
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-10">
         <CloudPanel />
 
         <Panel title="Perfil">

@@ -21,7 +21,8 @@ const LABEL: Record<SyncStatus, string> = {
 export function SyncBadge({ className }: { className?: string }) {
   const status = useSync((s) => s.status);
   const bad = status === "error" || status === "unauthorized" || status === "unconfigured";
-  const Icon = status === "off" || status === "offline" || bad ? CloudOff : Cloud;
+  // Solo aparece cuando hay algo que atender; si todo va bien, no ocupa espacio.
+  if (!bad && status !== "offline") return null;
   return (
     <Link
       href="/ajustes#nube"
@@ -29,12 +30,11 @@ export function SyncBadge({ className }: { className?: string }) {
       title={LABEL[status]}
       className={cx(
         "press relative inline-flex size-9 flex-none items-center justify-center rounded-full hover:bg-active",
-        bad ? "text-negative" : status === "synced" ? "text-ink" : "text-faint",
+        bad ? "text-negative" : "text-faint",
         className,
       )}
     >
-      <Icon size={18} strokeWidth={1.75} />
-      {status === "syncing" && <span className="absolute top-2 right-2 size-1.5 animate-pulse rounded-full bg-accent" />}
+      <CloudOff size={18} strokeWidth={1.75} />
     </Link>
   );
 }

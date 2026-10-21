@@ -164,16 +164,12 @@ export function Panel({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cx("rounded-[22px] bg-surface p-4 md:p-5", className)}>
+    <section className={cx("min-w-0", className)}>
       {(title || action) && (
-        <header className="mb-3 flex min-h-8 items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-[14px] font-semibold">
+        <header className="mb-2 flex min-h-9 items-center justify-between gap-3">
+          <h2 className="flex items-baseline gap-2 font-display text-[18px] font-semibold tracking-[-0.015em] lg:text-[17px]">
             {title}
-            {count !== undefined && (
-              <span className="tabular rounded-full bg-raised px-2 py-px text-[12px] font-medium text-muted ring-1 ring-border">
-                {count}
-              </span>
-            )}
+            {count !== undefined && <span className="tabular font-sans text-[14px] font-normal text-faint">{count}</span>}
           </h2>
           {action}
         </header>
@@ -185,7 +181,7 @@ export function Panel({
 
 export function PanelLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="text-[13px] font-medium text-muted hover:text-ink">
+    <Link href={href} className="inline-flex h-9 items-center text-[14px] font-medium text-accent hover:underline lg:text-[13px]">
       {children}
     </Link>
   );
@@ -194,7 +190,7 @@ export function PanelLink({ href, children }: { href: string; children: ReactNod
 /** Sección vacía: conserva su marco y dice qué hacer. */
 export function Empty({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex min-h-[44px] flex-wrap items-center justify-between gap-2 rounded-[12px] border border-dashed border-control px-4 py-3 text-[13px] text-muted">
+    <div className="flex min-h-[48px] flex-wrap items-center justify-between gap-2 rounded-[14px] bg-surface px-4 py-3 text-[14px] text-muted lg:text-[13px]">
       <span>{children}</span>
       {action}
     </div>

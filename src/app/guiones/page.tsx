@@ -149,7 +149,7 @@ export default function ScriptsPage() {
           No hay guiones en este proyecto.
         </Empty>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-10">
           {[...groups.entries()].map(([pid, list]) => (
             <Panel key={pid} title={pid ? <ProjectTag project={projectMap.get(pid)} /> : "Para cualquier proyecto"} count={list.length}>
               <ul className="grid grid-cols-1 gap-2 lg:grid-cols-2">

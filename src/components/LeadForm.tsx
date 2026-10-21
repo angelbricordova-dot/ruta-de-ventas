@@ -101,9 +101,6 @@ export function LeadForm() {
                 Borrar
               </Button>
             ))}
-          <Button variant="ghost" onClick={close}>
-            Cancelar
-          </Button>
           <Button variant="primary" onClick={submit}>
             {existing ? "Guardar" : "Agregar prospecto"}
           </Button>
@@ -132,36 +129,34 @@ export function LeadForm() {
           )}
         </Field>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Proyecto">
-            {(id) => (
-              <Select
-                id={id}
-                value={draft.projectId}
-                onChange={(e) => {
-                  const p = projects.find((x) => x.id === e.target.value);
-                  setDraft((d) => ({
-                    ...d,
-                    projectId: e.target.value,
-                    offerId: null,
-                    nextAction: d.nextAction && p && !p.channels.includes(d.nextAction.channel)
+        {active.length > 1 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-muted">Proyecto</span>
+            <Chips
+              label="Proyecto"
+              value={draft.projectId}
+              options={active.map((p) => ({ value: p.id, label: p.name }))}
+              onChange={(pid) => {
+                const p = projects.find((x) => x.id === pid);
+                setDraft((d) => ({
+                  ...d,
+                  projectId: pid,
+                  offerId: null,
+                  nextAction:
+                    d.nextAction && p && !p.channels.includes(d.nextAction.channel)
                       ? { ...d.nextAction, channel: p.channels[0] ?? "visita" }
                       : d.nextAction,
-                  }));
-                }}
-              >
-                {active.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
+                }));
+              }}
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Rubro">
             {(id) => (
               <>
-                <Input id={id} list={`${id}-l`} value={draft.niche} onChange={(e) => set("niche", e.target.value)} placeholder="Gimnasio, veterinaria…" />
+                <Input id={id} list={`${id}-l`} value={draft.niche} onChange={(e) => set("niche", e.target.value)} placeholder="Gimnasio…" />
                 <datalist id={`${id}-l`}>
                   {niches.map((n) => (
                     <option key={n} value={n} />
@@ -170,31 +165,10 @@ export function LeadForm() {
               </>
             )}
           </Field>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Persona de contacto">
-            {(id) => <Input id={id} value={draft.contactName} onChange={(e) => set("contactName", e.target.value)} placeholder="Nombre del dueño o encargado" />}
-          </Field>
-          <Field label="Teléfono o WhatsApp">
-            {(id) => <Input id={id} type="tel" inputMode="tel" value={draft.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Con código de país" />}
-          </Field>
-          <Field label="Instagram">
-            {(id) => <Input id={id} value={draft.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@usuario" autoCapitalize="off" />}
-          </Field>
-          <Field label="Correo">
-            {(id) => <Input id={id} type="email" value={draft.email} onChange={(e) => set("email", e.target.value)} autoCapitalize="off" />}
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_180px]">
-          <Field label="Dirección">
-            {(id) => <Input id={id} value={draft.address} onChange={(e) => set("address", e.target.value)} placeholder="Calle y número" />}
-          </Field>
           <Field label="Zona">
             {(id) => (
               <>
-                <Input id={id} list={`${id}-z`} value={draft.zone} onChange={(e) => set("zone", e.target.value)} placeholder="Barrio o sector" />
+                <Input id={id} list={`${id}-z`} value={draft.zone} onChange={(e) => set("zone", e.target.value)} placeholder="Barrio" />
                 <datalist id={`${id}-z`}>
                   {zones.map((z) => (
                     <option key={z} value={z} />
@@ -203,67 +177,27 @@ export function LeadForm() {
               </>
             )}
           </Field>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Etapa">
-            {(id) => (
-              <Select id={id} value={draft.stage} onChange={(e) => set("stage", e.target.value as Stage)}>
-                {STAGES.map((s) => (
-                  <option key={s} value={s}>
-                    {STAGE_LABEL[s]}
-                  </option>
-                ))}
-              </Select>
-            )}
+          <Field label="WhatsApp o teléfono">
+            {(id) => <Input id={id} type="tel" inputMode="tel" value={draft.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+51…" />}
           </Field>
-          <Field label="Qué le ofrezco">
-            {(id) => (
-              <Select
-                id={id}
-                value={draft.offerId ?? ""}
-                onChange={(e) => {
-                  const offer = project?.offers.find((o) => o.id === e.target.value);
-                  setDraft((d) => ({ ...d, offerId: offer?.id ?? null, value: offer ? offer.price : d.value }));
-                }}
-              >
-                <option value="">Sin definir</option>
-                {project?.offers.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-          <Field label="Valor estimado">
-            {(id) => (
-              <Input
-                id={id}
-                type="number"
-                inputMode="decimal"
-                min={0}
-                value={draft.value || ""}
-                onChange={(e) => set("value", Number(e.target.value) || 0)}
-                placeholder="0"
-                className="tabular"
-              />
-            )}
+          <Field label="Instagram">
+            {(id) => <Input id={id} value={draft.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@usuario" autoCapitalize="off" />}
           </Field>
         </div>
 
-        <fieldset className="flex flex-col gap-3 rounded-[16px] bg-surface p-4">
-          <div className="flex items-center justify-between">
-            <legend className="text-[14px] font-semibold">Próximo contacto</legend>
-            <button
-              type="button"
-              className="text-[13px] font-medium text-muted hover:text-ink"
-              onClick={() => set("nextAction", draft.nextAction ? null : { channel: channels[0], date: today, note: "" })}
-            >
-              {draft.nextAction ? "Sin fecha" : "Programar"}
-            </button>
-          </div>
-          {draft.nextAction ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-medium text-muted">Próximo contacto</span>
+          <Chips
+            label="Fecha"
+            value={draft.nextAction ? quick : "nunca"}
+            options={[...quickDates, { value: "otra", label: "Otra fecha" }, { value: "nunca", label: "Sin fecha" }]}
+            onChange={(v) => {
+              if (v === "nunca") return set("nextAction", null);
+              const base = draft.nextAction ?? { channel: channels[0], date: today, note: "" };
+              set("nextAction", { ...base, date: v === "otra" ? addDays(today, 14) : v });
+            }}
+          />
+          {draft.nextAction && (
             <>
               <Chips
                 label="Canal"
@@ -271,38 +205,97 @@ export function LeadForm() {
                 options={channels.map((c) => ({ value: c, label: CHANNEL_LABEL[c] }))}
                 onChange={(c) => set("nextAction", { ...draft.nextAction!, channel: c })}
               />
-              <Chips
-                label="Fecha"
-                value={quick}
-                options={[...quickDates, { value: "otra", label: "Otra fecha" }]}
-                onChange={(v) => v !== "otra" && set("nextAction", { ...draft.nextAction!, date: v })}
+              {quick === "otra" && (
+                <Input
+                  type="date"
+                  aria-label="Fecha del próximo contacto"
+                  value={draft.nextAction.date}
+                  onChange={(e) => e.target.value && set("nextAction", { ...draft.nextAction!, date: e.target.value })}
+                />
+              )}
+              <Input
+                aria-label="Qué hacer"
+                value={draft.nextAction.note}
+                onChange={(e) => set("nextAction", { ...draft.nextAction!, note: e.target.value })}
+                placeholder="Qué hacer (opcional)"
               />
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[160px_1fr]">
-                  <Input
-                    type="date"
-                    aria-label="Fecha del próximo contacto"
-                    value={draft.nextAction.date}
-                    onChange={(e) => e.target.value && set("nextAction", { ...draft.nextAction!, date: e.target.value })}
-                  />
-                  <Input
-                    aria-label="Qué hacer"
-                    value={draft.nextAction.note}
-                    onChange={(e) => set("nextAction", { ...draft.nextAction!, note: e.target.value })}
-                    placeholder="Qué hacer: llevar muestras, mandar ejemplo…"
-                  />
-                </div>
             </>
-          ) : (
-            <p className="text-[13px] text-muted">Sin próximo contacto. No aparecerá en la ruta.</p>
           )}
-        </fieldset>
+        </div>
 
-        <Field label="Notas">
-          {(id) => <Textarea id={id} value={draft.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Horario, quién decide, qué le preocupa…" />}
-        </Field>
+        <details className="group rounded-[16px] bg-surface" open={!!existing && !!(draft.contactName || draft.address || draft.notes)}>
+          <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-medium lg:text-[14px]">
+            Más datos
+            <span className="text-[13px] font-normal text-muted group-open:hidden">Contacto, dirección, valor, notas</span>
+          </summary>
+          <div className="flex flex-col gap-4 px-4 pb-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Persona de contacto">
+                {(id) => <Input id={id} value={draft.contactName} onChange={(e) => set("contactName", e.target.value)} placeholder="Dueño o encargado" />}
+              </Field>
+              <Field label="Correo">
+                {(id) => <Input id={id} type="email" value={draft.email} onChange={(e) => set("email", e.target.value)} autoCapitalize="off" />}
+              </Field>
+            </div>
+            <Field label="Dirección">
+              {(id) => <Input id={id} value={draft.address} onChange={(e) => set("address", e.target.value)} placeholder="Calle y número" />}
+            </Field>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Field label="Etapa">
+                {(id) => (
+                  <Select id={id} value={draft.stage} onChange={(e) => set("stage", e.target.value as Stage)}>
+                    {STAGES.map((s) => (
+                      <option key={s} value={s}>
+                        {STAGE_LABEL[s]}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              <Field label="Valor estimado">
+                {(id) => (
+                  <Input
+                    id={id}
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    value={draft.value || ""}
+                    onChange={(e) => set("value", Number(e.target.value) || 0)}
+                    placeholder="0"
+                    className="tabular"
+                  />
+                )}
+              </Field>
+              {project && project.offers.length > 0 && (
+                <Field label="Qué le ofrezco" className="col-span-2 sm:col-span-1">
+                  {(id) => (
+                    <Select
+                      id={id}
+                      value={draft.offerId ?? ""}
+                      onChange={(e) => {
+                        const offer = project.offers.find((o) => o.id === e.target.value);
+                        setDraft((d) => ({ ...d, offerId: offer?.id ?? null, value: offer ? offer.price : d.value }));
+                      }}
+                    >
+                      <option value="">Sin definir</option>
+                      {project.offers.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
+              )}
+            </div>
+            <Field label="Notas">
+              {(id) => <Textarea id={id} value={draft.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Horario, quién decide, qué le preocupa…" />}
+            </Field>
+          </div>
+        </details>
 
         {error && (
-          <p role="alert" className="text-[13px] text-negative">
+          <p role="alert" className="text-[14px] text-negative">
             {error}
           </p>
         )}

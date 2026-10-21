@@ -8,8 +8,8 @@ import { CHANNEL_LABEL, LANE_LABEL, LANE_OF, OPEN_STAGES, STAGE_LABEL, type Lane
 import { addDays, capitalize, isoDay, longDay, parseDay, plural, relativeDay } from "@/lib/format";
 import { walkingRoute } from "@/lib/links";
 import { Canvas } from "@/components/Shell";
-import { ContactButton, Due, LogButton } from "@/components/LeadBits";
-import { Avatar, Button, Chips, cx, Empty, Input, PageTitle, Panel, ProjectDot, Sheet } from "@/components/ui";
+import { ContactButton, DoneCircle, Due } from "@/components/LeadBits";
+import { Button, Chips, cx, Empty, Input, PageTitle, Panel, ProjectDot, Sheet } from "@/components/ui";
 import type { Channel, Lead } from "@/lib/types";
 
 const LANES: Lane[] = ["pie", "telefono", "mensajes"];
@@ -75,19 +75,19 @@ export default function RoutePage() {
             )}
           </div>
           {shown.length ? (
-            <ul className="flex flex-col gap-2 lg:max-h-[640px] lg:overflow-y-auto">
+            <ul className="divide-y divide-rule lg:max-h-[640px] lg:overflow-y-auto">
               {shown.map((l) => {
                 const project = projects.find((p) => p.id === l.projectId);
                 const options = (["visita", "llamada", "whatsapp", "dm"] as Channel[]).filter((c) => !project || project.channels.includes(c));
                 return (
-                  <li key={l.id} className="rounded-[14px] border border-border bg-raised p-3">
+                  <li key={l.id} className="py-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <span className="flex items-center gap-1.5">
                           {scope === "todos" && <ProjectDot project={project} size={7} />}
-                          <span className="truncate text-[14px] font-medium">{l.business}</span>
+                          <span className="truncate text-[16px] font-medium lg:text-[14px]">{l.business}</span>
                         </span>
-                        <span className="block truncate text-[12.5px] text-muted">
+                        <span className="block truncate text-[14px] text-muted lg:text-[12.5px]">
                           {[l.niche, l.zone, STAGE_LABEL[l.stage]].filter(Boolean).join(" · ")}
                         </span>
                         {l.nextAction && (
@@ -103,7 +103,7 @@ export default function RoutePage() {
                           key={c}
                           type="button"
                           onClick={() => addTo(l, c)}
-                          className="press inline-flex h-10 items-center gap-1 rounded-full border border-control px-3.5 text-[14px] font-medium hover:border-ink lg:h-8 lg:px-3 lg:text-[12.5px]"
+                          className="press inline-flex h-10 items-center gap-1 rounded-full bg-active px-3.5 text-[14px] font-medium hover:bg-[#e2e2dd] lg:h-8 lg:px-3 lg:text-[12.5px]"
                         >
                           <Plus size={13} strokeWidth={2} /> {CHANNEL_LABEL[c]}
                         </button>
@@ -127,7 +127,7 @@ export default function RoutePage() {
         <button
           type="button"
           onClick={() => setDate(addDays(date, -1))}
-          className="press inline-flex size-10 flex-none items-center justify-center rounded-full border border-border hover:border-control"
+          className="press inline-flex size-10 flex-none items-center justify-center rounded-full hover:bg-active"
           aria-label="Día anterior"
         >
           <ChevronLeft size={16} strokeWidth={1.75} />
@@ -143,8 +143,8 @@ export default function RoutePage() {
                 onClick={() => setDate(d)}
                 aria-pressed={on}
                 className={cx(
-                  "press flex h-14 min-w-[64px] flex-1 flex-col items-center justify-center rounded-[14px] border text-[12px]",
-                  on ? "border-ink bg-ink text-white" : "border-border bg-raised hover:border-control",
+                  "press flex h-14 min-w-[60px] flex-1 flex-col items-center justify-center rounded-[16px] text-[12px]",
+                  on ? "bg-ink text-white" : "bg-surface hover:bg-active",
                 )}
               >
                 <span className={on ? "text-white/70" : "text-muted"}>{d === today ? "Hoy" : capitalize(weekdayShort.format(parseDay(d)).replace(".", ""))}</span>
@@ -156,7 +156,7 @@ export default function RoutePage() {
         <button
           type="button"
           onClick={() => setDate(addDays(date, 1))}
-          className="press inline-flex size-10 flex-none items-center justify-center rounded-full border border-border hover:border-control"
+          className="press inline-flex size-10 flex-none items-center justify-center rounded-full hover:bg-active"
           aria-label="Día siguiente"
         >
           <ChevronRight size={16} strokeWidth={1.75} />
@@ -167,8 +167,8 @@ export default function RoutePage() {
         <Plus size={18} strokeWidth={2} /> Agregar contactos a {relativeDay(date, today).toLowerCase()}
       </Button>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="flex flex-col gap-4 lg:col-span-7">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <div className="flex flex-col gap-8 lg:col-span-7">
           {LANES.map((l) => {
             const items = l === "pie" ? visits : lane(l);
             return (
@@ -185,56 +185,55 @@ export default function RoutePage() {
                 }
               >
                 {items.length ? (
-                  <ol className="flex flex-col gap-2">
+                  <ol className="divide-y divide-rule">
                     {items.map((lead, i) => {
                       const project = projectMap.get(lead.projectId);
+                      const channel = lead.nextAction!.channel;
                       return (
-                        <li key={lead.id} className="flex min-h-[63px] items-center gap-2.5 rounded-[14px] border border-border bg-raised py-2 pr-2 pl-3">
-                          {l === "pie" ? (
-                            <span className="flex flex-none flex-col items-center">
-                              <button
-                                type="button"
-                                disabled={i === 0}
-                                onClick={() => moveInRoute(lead.id, -1, date)}
-                                className="press inline-flex size-6 items-center justify-center rounded-full text-faint hover:text-ink disabled:opacity-25"
-                                aria-label="Subir en la ruta"
-                              >
-                                <ArrowUp size={13} strokeWidth={2} />
-                              </button>
-                              <span className="tabular text-[12px] font-semibold text-muted">{i + 1}</span>
-                              <button
-                                type="button"
-                                disabled={i === items.length - 1}
-                                onClick={() => moveInRoute(lead.id, 1, date)}
-                                className="press inline-flex size-6 items-center justify-center rounded-full text-faint hover:text-ink disabled:opacity-25"
-                                aria-label="Bajar en la ruta"
-                              >
-                                <ArrowDown size={13} strokeWidth={2} />
-                              </button>
-                            </span>
-                          ) : (
-                            <Avatar name={lead.business} project={project} size={32} />
-                          )}
-                          <Link href={`/prospectos/${lead.id}`} className="min-w-0 flex-1">
+                        <li key={lead.id} className="flex min-h-[66px] items-center gap-2 py-1.5 lg:min-h-[60px]">
+                          {isToday && <DoneCircle lead={lead} channel={channel} />}
+                          <Link href={`/prospectos/${lead.id}`} className="min-w-0 flex-1 py-1">
                             <span className="flex items-center gap-1.5">
+                              {l === "pie" && <span className="tabular text-[14px] text-faint">{i + 1}</span>}
+                              <span className="truncate text-[16px] font-medium lg:text-[14px]">{lead.business}</span>
                               {scope === "todos" && <ProjectDot project={project} size={7} />}
-                              <span className="truncate text-[14px] font-medium">{lead.business}</span>
                             </span>
-                            <span className="flex items-center gap-2 text-[12.5px] text-muted">
+                            <span className="flex items-center gap-2 text-[14px] text-muted lg:text-[12.5px]">
                               <Due date={lead.nextAction!.date} today={today} />
                               <span className="truncate">
-                                {[l !== "pie" ? CHANNEL_LABEL[lead.nextAction!.channel] : "", lead.nextAction?.note || lead.niche, lead.address || lead.zone]
+                                {[l !== "pie" ? CHANNEL_LABEL[channel] : "", lead.nextAction?.note || lead.niche, lead.address || lead.zone]
                                   .filter(Boolean)
                                   .join(" · ")}
                               </span>
                             </span>
                           </Link>
-                          <ContactButton lead={lead} channel={lead.nextAction!.channel} />
-                          {isToday && <LogButton lead={lead} channel={lead.nextAction!.channel} compact />}
+                          {l === "pie" && items.length > 1 && (
+                            <span className="flex flex-none flex-col">
+                              <button
+                                type="button"
+                                disabled={i === 0}
+                                onClick={() => moveInRoute(lead.id, -1, date)}
+                                className="press inline-flex size-7 items-center justify-center rounded-full text-faint hover:text-ink disabled:opacity-20"
+                                aria-label="Subir en la ruta"
+                              >
+                                <ArrowUp size={15} strokeWidth={2} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={i === items.length - 1}
+                                onClick={() => moveInRoute(lead.id, 1, date)}
+                                className="press inline-flex size-7 items-center justify-center rounded-full text-faint hover:text-ink disabled:opacity-20"
+                                aria-label="Bajar en la ruta"
+                              >
+                                <ArrowDown size={15} strokeWidth={2} />
+                              </button>
+                            </span>
+                          )}
+                          <ContactButton lead={lead} channel={channel} />
                           <button
                             type="button"
                             onClick={() => schedule(lead.id, null)}
-                            className="press hidden size-9 flex-none items-center justify-center rounded-full text-faint hover:bg-active hover:text-ink sm:inline-flex"
+                            className="press hidden size-9 flex-none items-center justify-center rounded-full text-faint hover:bg-active hover:text-ink lg:inline-flex"
                             aria-label={`Quitar ${lead.business} de la ruta`}
                             title="Quitar de la ruta"
                           >
@@ -246,11 +245,7 @@ export default function RoutePage() {
                   </ol>
                 ) : (
                   <Empty>
-                    {l === "pie"
-                      ? "Sin visitas este día. Agrégalas desde la lista, mejor si son de la misma zona."
-                      : l === "telefono"
-                        ? "Sin llamadas este día."
-                        : "Sin mensajes ni DMs este día."}
+                    {l === "pie" ? "Sin visitas." : l === "telefono" ? "Sin llamadas." : "Sin mensajes."}
                   </Empty>
                 )}
                 {l === "pie" && items.length > 0 && !city && (
