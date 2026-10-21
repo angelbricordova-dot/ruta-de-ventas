@@ -15,8 +15,8 @@
   --text: #1f201d;
   --muted: #61615d;
   --faint: #8c8c88;
-  --accent: #1b6e66;
-  --accent-tint: #e3f1ef;
+  --accent: #2257a8;
+  --accent-tint: #e6eefa;
   --positive: #2e7d32;
   --negative: #b42318;
   --warning: #92400e;
@@ -30,8 +30,8 @@
   --pill-warning-ink: #7c3a0b;
   --pill-neutral-bg: #f0f0ec;
   --pill-neutral-ink: #3d3d3a;
-  --pill-accent-bg: #e3f1ef;
-  --pill-accent-ink: #0e403b;
+  --pill-accent-bg: #e6eefa;
+  --pill-accent-ink: #163a72;
 }
 
 @theme inline {
@@ -76,7 +76,7 @@ body {
 
 ::selection {
   background: var(--accent-tint);
-  color: #0e403b;
+  color: #163a72;
 }
 
 :focus-visible {
