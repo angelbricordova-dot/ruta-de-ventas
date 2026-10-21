@@ -10,7 +10,7 @@ import { CHANNEL_LABEL, CHANNEL_VERB, OUTCOME_LABEL, STAGE_LABEL, STAGES } from 
 import { addDays, isoDay, longDay, money, relativeDay, when } from "@/lib/format";
 import { fillScript } from "@/lib/links";
 import { Canvas } from "@/components/Shell";
-import { ContactButton, Due } from "@/components/LeadBits";
+import { ContactButton, Due, LogButton } from "@/components/LeadBits";
 import { Avatar, Button, Chips, cx, Empty, Panel, ProjectTag } from "@/components/ui";
 import type { Channel } from "@/lib/types";
 
@@ -82,7 +82,7 @@ export default function LeadPage() {
         <div className="flex min-w-0 items-center gap-4">
           <Avatar name={lead.business} project={project} size={52} />
           <div className="min-w-0">
-            <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.01em] md:text-[24px]">{lead.business}</h1>
+            <h1 className="font-display text-[24px] leading-tight font-semibold tracking-[-0.02em] lg:text-[28px]">{lead.business}</h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[14px] text-muted">
               <ProjectTag project={project} />
               {[lead.niche, lead.zone].filter(Boolean).join(" · ")}
@@ -91,7 +91,7 @@ export default function LeadPage() {
         </div>
         <div className="flex gap-2">
           <Button onClick={() => openLeadForm(lead.id)}>Editar</Button>
-          <Button variant="primary" onClick={() => openLog(lead.id)}>
+          <Button variant="primary" onClick={() => openLog(lead.id)} className="max-lg:hidden">
             Registrar contacto
           </Button>
         </div>
@@ -103,8 +103,8 @@ export default function LeadPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-        <div className="flex flex-col gap-4 md:col-span-8">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <div className="flex flex-col gap-4 lg:col-span-8">
           <Panel title="Próximo contacto">
             {next ? (
               <div className="rounded-[14px] border border-border bg-raised p-4">
@@ -228,7 +228,7 @@ export default function LeadPage() {
           )}
         </div>
 
-        <div className="flex flex-col gap-4 md:col-span-4">
+        <div className="flex flex-col gap-4 lg:col-span-4">
           <Panel title="Etapa">
             <ol className="flex flex-col gap-1">
               {STAGES.map((s) => {
@@ -286,6 +286,14 @@ export default function LeadPage() {
           </Panel>
         </div>
       </div>
+      {/* Teléfono: lo que más se usa, siempre a mano sobre la barra inferior. */}
+      <div className="fixed inset-x-0 bottom-[calc(61px+env(safe-area-inset-bottom))] z-20 border-t border-rule bg-[rgba(255,255,255,0.97)] px-4 py-2.5 lg:hidden">
+        <div className="flex gap-2">
+          <ContactButton lead={lead} channel={next?.channel ?? (lead.phone ? "llamada" : channels[0])} big />
+          <LogButton lead={lead} channel={next?.channel} big />
+        </div>
+      </div>
+      <div className="h-20 lg:hidden" aria-hidden />
     </Canvas>
   );
 }

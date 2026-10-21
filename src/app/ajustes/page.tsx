@@ -6,6 +6,8 @@ import { makeBackup, useStore, type Backup } from "@/lib/store";
 import { isoDay } from "@/lib/format";
 import { Canvas } from "@/components/Shell";
 import { Button, Field, Input, PageTitle, Panel } from "@/components/ui";
+import { CloudPanel } from "@/components/Cloud";
+import { useSync } from "@/lib/sync";
 
 export default function SettingsPage() {
   const settings = useStore((s) => s.settings);
@@ -19,6 +21,7 @@ export default function SettingsPage() {
   const file = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
+  const cloud = useSync((s) => s.enabled);
 
   const demoCount = leads.filter((l) => l.demo).length;
   const realCount = leads.length - demoCount;
@@ -50,6 +53,8 @@ export default function SettingsPage() {
       <PageTitle title="Ajustes" />
 
       <div className="flex flex-col gap-4">
+        <CloudPanel />
+
         <Panel title="Perfil">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Mi nombre" hint="Se usa en el saludo y en los guiones ({vendedor}).">
@@ -64,10 +69,12 @@ export default function SettingsPage() {
           </div>
         </Panel>
 
-        <Panel title="Mis datos">
+        <Panel title="Copia de seguridad">
           <p className="text-[14px] leading-relaxed text-muted">
-            Por ahora todo se guarda en este navegador: {realCount} prospectos tuyos y {activities.filter((a) => !a.demo).length} contactos
-            registrados. Si cambias de teléfono o borras los datos del navegador se pierde, así que descarga una copia de vez en cuando.
+            Tienes {realCount} prospectos tuyos y {activities.filter((a) => !a.demo).length} contactos registrados.{" "}
+            {cloud
+              ? "Ya se guardan en la nube; esta copia es un respaldo extra en un archivo."
+              : "Sin la nube viven solo en este navegador: descarga una copia de vez en cuando."}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button onClick={download}>

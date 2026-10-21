@@ -18,7 +18,19 @@ export interface LogInput {
   next: NextAction | null;
 }
 
-export interface Backup {
+/** Lo que se guarda en la nube y en las copias de seguridad. */
+export interface SyncData {
+  projects: Project[];
+  leads: Lead[];
+  activities: Activity[];
+  scripts: Script[];
+  settings: Settings;
+  settingsUpdatedAt: string;
+  /** IDs borrados, para que un borrado en un dispositivo no reviva desde otro. */
+  deleted: string[];
+}
+
+export interface Backup extends Partial<Pick<SyncData, "settingsUpdatedAt" | "deleted">> {
   version: 1;
   exportedAt: string;
   projects: Project[];
@@ -28,12 +40,7 @@ export interface Backup {
   settings: Settings;
 }
 
-interface State {
-  projects: Project[];
-  leads: Lead[];
-  activities: Activity[];
-  scripts: Script[];
-  settings: Settings;
+interface State extends SyncData {
   scope: Scope;
 
   setScope: (scope: Scope) => void;
@@ -57,6 +64,7 @@ interface State {
   loadDemo: () => void;
   importBackup: (backup: Backup) => void;
   resetAll: () => void;
+  replaceData: (data: SyncData) => void;
 }
 
 const fresh = () => {
@@ -67,9 +75,14 @@ const fresh = () => {
     activities: demo.activities,
     scripts: seedScripts(),
     settings: DEFAULT_SETTINGS,
+    settingsUpdatedAt: "1970-01-01T00:00:00.000Z",
+    deleted: [] as string[],
     scope: "todos" as Scope,
   };
 };
+
+const nowIso = () => new Date().toISOString();
+const bury = (deleted: string[], ids: string[]) => [...new Set([...deleted, ...ids])];
 
 const touch = (lead: Lead, patch: Partial<Lead>): Lead => ({
   ...lead,
@@ -90,15 +103,15 @@ export const useStore = create<State>()(
       ...fresh(),
 
       setScope: (scope) => set({ scope }),
-      updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+      updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch }, settingsUpdatedAt: nowIso() })),
 
       saveProject: (input) => {
         const id = input.id ?? uid();
         set((s) => {
           const existing = s.projects.find((p) => p.id === id);
           const project: Project = existing
-            ? { ...existing, ...input, id }
-            : { ...input, id, createdAt: new Date().toISOString() };
+            ? { ...existing, ...input, id, updatedAt: nowIso() }
+            : { ...input, id, createdAt: nowIso(), updatedAt: nowIso() };
           return {
             projects: existing ? s.projects.map((p) => (p.id === id ? project : p)) : [...s.projects, project],
           };
@@ -109,7 +122,14 @@ export const useStore = create<State>()(
       deleteProject: (id) =>
         set((s) => {
           const leadIds = new Set(s.leads.filter((l) => l.projectId === id).map((l) => l.id));
+          const gone = [
+            id,
+            ...leadIds,
+            ...s.activities.filter((a) => leadIds.has(a.leadId)).map((a) => a.id),
+            ...s.scripts.filter((sc) => sc.projectId === id).map((sc) => sc.id),
+          ];
           return {
+            deleted: bury(s.deleted, gone),
             projects: s.projects.filter((p) => p.id !== id),
             leads: s.leads.filter((l) => l.projectId !== id),
             activities: s.activities.filter((a) => !leadIds.has(a.leadId)),
@@ -147,6 +167,7 @@ export const useStore = create<State>()(
         set((s) => ({
           leads: s.leads.filter((l) => l.id !== id),
           activities: s.activities.filter((a) => a.leadId !== id),
+          deleted: bury(s.deleted, [id, ...s.activities.filter((a) => a.leadId === id).map((a) => a.id)]),
         })),
 
       setStage: (id, stage) =>
@@ -175,7 +196,7 @@ export const useStore = create<State>()(
           if (i < 0 || j < 0 || j >= route.length) return {};
           [route[i], route[j]] = [route[j], route[i]];
           const order = new Map(route.map((l, k) => [l.id, k + 1]));
-          return { leads: s.leads.map((l) => (order.has(l.id) ? { ...l, routeOrder: order.get(l.id)! } : l)) };
+          return { leads: s.leads.map((l) => (order.has(l.id) ? touch(l, { routeOrder: order.get(l.id)! }) : l)) };
         }),
 
       logContact: ({ leadId, channel, outcome, note, amount, next }) =>
@@ -210,28 +231,33 @@ export const useStore = create<State>()(
           };
         }),
 
-      deleteActivity: (id) => set((s) => ({ activities: s.activities.filter((a) => a.id !== id) })),
+      deleteActivity: (id) => set((s) => ({ activities: s.activities.filter((a) => a.id !== id), deleted: bury(s.deleted, [id]) })),
 
       saveScript: (input) => {
         const id = input.id ?? uid();
         set((s) => {
           const exists = s.scripts.some((sc) => sc.id === id);
-          const script: Script = { ...input, id };
+          const script: Script = { ...input, id, updatedAt: nowIso() };
           return { scripts: exists ? s.scripts.map((sc) => (sc.id === id ? script : sc)) : [...s.scripts, script] };
         });
       },
-      deleteScript: (id) => set((s) => ({ scripts: s.scripts.filter((sc) => sc.id !== id) })),
+      deleteScript: (id) => set((s) => ({ scripts: s.scripts.filter((sc) => sc.id !== id), deleted: bury(s.deleted, [id]) })),
 
       clearDemo: () =>
         set((s) => ({
           leads: s.leads.filter((l) => !l.demo),
           activities: s.activities.filter((a) => !a.demo),
+          deleted: bury(s.deleted, [...s.leads.filter((l) => l.demo), ...s.activities.filter((a) => a.demo)].map((x) => x.id)),
         })),
 
       loadDemo: () => {
         const demo = seedDemo();
+        const stamp = nowIso();
+        demo.leads.forEach((l) => (l.updatedAt = stamp));
+        const revived = new Set([...demo.leads, ...demo.activities].map((x) => x.id));
         const missing = seedProjects().filter((p) => !get().projects.some((q) => q.id === p.id));
         set((s) => ({
+          deleted: s.deleted.filter((id) => !revived.has(id)),
           projects: [...s.projects, ...missing],
           leads: [...s.leads.filter((l) => !l.demo), ...demo.leads],
           activities: [...s.activities.filter((a) => !a.demo), ...demo.activities],
@@ -245,30 +271,61 @@ export const useStore = create<State>()(
           activities: b.activities,
           scripts: b.scripts,
           settings: { ...DEFAULT_SETTINGS, ...b.settings },
+          settingsUpdatedAt: b.settingsUpdatedAt ?? nowIso(),
+          deleted: b.deleted ?? [],
           scope: "todos",
         }),
 
-      resetAll: () => set({ ...fresh() }),
+      resetAll: () =>
+        set((s) => {
+          const next = fresh();
+          const stamp = nowIso();
+          next.leads.forEach((l) => (l.updatedAt = stamp));
+          next.projects.forEach((p) => (p.updatedAt = stamp));
+          next.scripts.forEach((sc) => (sc.updatedAt = stamp));
+          const keep = new Set([...next.projects, ...next.leads, ...next.activities, ...next.scripts].map((x) => x.id));
+          const current = [...s.projects, ...s.leads, ...s.activities, ...s.scripts].map((x) => x.id);
+          return {
+            ...next,
+            settingsUpdatedAt: stamp,
+            deleted: bury(s.deleted, current).filter((id) => !keep.has(id)),
+          };
+        }),
+
+      replaceData: (data) => set({ ...data }),
     }),
     {
       name: "ruta-de-ventas",
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ projects, leads, activities, scripts, settings, scope }) => ({
+      partialize: ({ projects, leads, activities, scripts, settings, settingsUpdatedAt, deleted, scope }) => ({
         projects,
         leads,
         activities,
         scripts,
         settings,
+        settingsUpdatedAt,
+        deleted,
         scope,
+      }),
+      // Datos guardados antes de la sincronización no tienen estos campos.
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Partial<State>),
+        deleted: (persisted as Partial<State>)?.deleted ?? [],
+        settingsUpdatedAt: (persisted as Partial<State>)?.settingsUpdatedAt ?? "1970-01-01T00:00:00.000Z",
       }),
     },
   ),
 );
 
+export function syncData(): SyncData {
+  const { projects, leads, activities, scripts, settings, settingsUpdatedAt, deleted } = useStore.getState();
+  return { projects, leads, activities, scripts, settings, settingsUpdatedAt, deleted };
+}
+
 export function makeBackup(): Backup {
-  const { projects, leads, activities, scripts, settings } = useStore.getState();
-  return { version: 1, exportedAt: new Date().toISOString(), projects, leads, activities, scripts, settings };
+  return { version: 1, exportedAt: new Date().toISOString(), ...syncData() };
 }
 
 /* ------------------------------------------------------------------ */

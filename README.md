@@ -21,11 +21,28 @@ Proyectos iniciales:
 | Guiones | Textos para llamadas, visitas, WhatsApp y DMs con `{negocio}`, `{contacto}`, `{rubro}`, `{zona}`, `{vendedor}`. |
 | Ajustes | Nombre, ciudad para Maps, moneda, copia de seguridad y datos de ejemplo. |
 
-## Datos
+## Datos y nube
 
-Por ahora todo se guarda en el navegador (localStorage). Cada dispositivo tiene sus propios datos;
-desde **Ajustes** se descarga y restaura una copia en JSON. Los prospectos de ejemplo usan teléfonos
-555-01xx (ficticios) y se borran con un botón.
+Cada dispositivo trabaja con su copia local, así que la app funciona sin señal. Con la nube activada,
+cada cambio se sube unos segundos después y al abrir la app se baja lo último; si el teléfono y la
+computadora cambian cosas a la vez, se unen registro por registro (gana el cambio más reciente y lo
+borrado en uno se borra en el otro).
+
+La nube es Upstash Redis (plan gratis) detrás de `/api/sync`, protegida con una clave.
+Los prospectos de ejemplo usan teléfonos 555-01xx (ficticios) y se borran con un botón.
+
+### Activar la nube (una vez)
+
+1. En Vercel, abre el proyecto → **Storage** → **Create Database** → **Upstash for Redis** (plan Free)
+   → conéctala al proyecto. Vercel agrega solo `KV_REST_API_URL` y `KV_REST_API_TOKEN`.
+2. **Settings → Environment Variables**: agrega `CLAVE_ACCESO` con una clave tuya.
+3. **Deployments → Redeploy**.
+4. En la app, **Ajustes → Nube**, escribe la clave. Repite el paso 4 en cada dispositivo.
+
+## En el teléfono
+
+Abre la app en el navegador y usa **Agregar a pantalla de inicio** (Safari: compartir → Agregar a
+inicio; Chrome: menú → Instalar app). Se abre a pantalla completa con su ícono.
 
 ## Desarrollo
 

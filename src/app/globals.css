@@ -52,7 +52,7 @@
   --color-active: var(--active);
 
   --font-sans: var(--font-instrument-sans), "Instrument Sans", system-ui, sans-serif;
-  --font-serif: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+  --font-display: var(--font-bricolage), "Bricolage Grotesque", var(--font-instrument-sans), system-ui, sans-serif;
 
   --radius-card: 22px;
   --radius-row: 14px;
@@ -67,7 +67,7 @@ body {
   background: var(--ground);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.45;
   font-feature-settings: "ss01";
   text-rendering: optimizeLegibility;
@@ -93,7 +93,10 @@ textarea {
   font-size: 16px;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
+  body {
+    font-size: 14px;
+  }
   input,
   select,
   textarea {
@@ -126,6 +129,12 @@ textarea {
     -webkit-user-select: none;
     user-select: none;
   }
+}
+
+/* La app instalada en el teléfono no debe rebotar ni recargar al tirar hacia abajo. */
+html,
+body {
+  overscroll-behavior-y: none;
 }
 
 /* Hoja inferior / panel lateral: entra desde abajo en el teléfono y desde la derecha en escritorio. */

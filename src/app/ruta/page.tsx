@@ -9,7 +9,7 @@ import { addDays, capitalize, isoDay, longDay, parseDay, plural, relativeDay } f
 import { walkingRoute } from "@/lib/links";
 import { Canvas } from "@/components/Shell";
 import { ContactButton, Due, LogButton } from "@/components/LeadBits";
-import { Avatar, Chips, cx, Empty, Input, PageTitle, Panel, ProjectDot } from "@/components/ui";
+import { Avatar, Button, Chips, cx, Empty, Input, PageTitle, Panel, ProjectDot, Sheet } from "@/components/ui";
 import type { Channel, Lead } from "@/lib/types";
 
 const LANES: Lane[] = ["pie", "telefono", "mensajes"];
@@ -28,6 +28,7 @@ export default function RoutePage() {
   const [date, setDate] = useState(today);
   const [zone, setZone] = useState("todas");
   const [q, setQ] = useState("");
+  const [picking, setPicking] = useState(false);
 
   const leads = inScope(allLeads, scope);
   const isToday = date === today;
@@ -56,6 +57,67 @@ export default function RoutePage() {
     .sort((a, b) => (a.nextAction ? 1 : 0) - (b.nextAction ? 1 : 0) || a.business.localeCompare(b.business));
 
   const addTo = (l: Lead, channel: Channel) => schedule(l.id, { channel, date, note: l.nextAction?.note ?? "" });
+
+  const picker = (
+    <>
+          <div className="mb-3 flex flex-col gap-3">
+            <label className="relative">
+              <Search size={16} strokeWidth={1.75} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar negocio o rubro" className="pl-9" aria-label="Buscar prospecto" />
+            </label>
+            {zones.length > 1 && (
+              <Chips
+                label="Zona"
+                value={zone}
+                onChange={setZone}
+                options={[{ value: "todas", label: "Todas" }, ...zones.map(([z, n]) => ({ value: z, label: `${z} ${n}` }))]}
+              />
+            )}
+          </div>
+          {shown.length ? (
+            <ul className="flex flex-col gap-2 lg:max-h-[640px] lg:overflow-y-auto">
+              {shown.map((l) => {
+                const project = projects.find((p) => p.id === l.projectId);
+                const options = (["visita", "llamada", "whatsapp", "dm"] as Channel[]).filter((c) => !project || project.channels.includes(c));
+                return (
+                  <li key={l.id} className="rounded-[14px] border border-border bg-raised p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="flex items-center gap-1.5">
+                          {scope === "todos" && <ProjectDot project={project} size={7} />}
+                          <span className="truncate text-[14px] font-medium">{l.business}</span>
+                        </span>
+                        <span className="block truncate text-[12.5px] text-muted">
+                          {[l.niche, l.zone, STAGE_LABEL[l.stage]].filter(Boolean).join(" · ")}
+                        </span>
+                        {l.nextAction && (
+                          <span className="block text-[12px] text-faint">
+                            Programado: {CHANNEL_LABEL[l.nextAction.channel]} {relativeDay(l.nextAction.date, today).toLowerCase()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {options.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => addTo(l, c)}
+                          className="press inline-flex h-10 items-center gap-1 rounded-full border border-control px-3.5 text-[14px] font-medium hover:border-ink lg:h-8 lg:px-3 lg:text-[12.5px]"
+                        >
+                          <Plus size={13} strokeWidth={2} /> {CHANNEL_LABEL[c]}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <Empty>{candidates.length ? "Nada coincide con la búsqueda." : "Todos tus prospectos abiertos ya tienen fecha este día."}</Empty>
+          )}
+    </>
+  );
 
   return (
     <Canvas>
@@ -100,6 +162,10 @@ export default function RoutePage() {
           <ChevronRight size={16} strokeWidth={1.75} />
         </button>
       </div>
+
+      <Button variant="primary" className="mb-4 w-full lg:hidden" onClick={() => setPicking(true)}>
+        <Plus size={18} strokeWidth={2} /> Agregar contactos a {relativeDay(date, today).toLowerCase()}
+      </Button>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="flex flex-col gap-4 lg:col-span-7">
@@ -201,65 +267,14 @@ export default function RoutePage() {
           })}
         </div>
 
-        <Panel className="lg:sticky lg:top-6 lg:col-span-5 lg:self-start" title={`Agregar a ${relativeDay(date, today).toLowerCase()}`} count={shown.length}>
-          <div className="mb-3 flex flex-col gap-3">
-            <label className="relative">
-              <Search size={16} strokeWidth={1.75} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar negocio o rubro" className="pl-9" aria-label="Buscar prospecto" />
-            </label>
-            {zones.length > 1 && (
-              <Chips
-                label="Zona"
-                value={zone}
-                onChange={setZone}
-                options={[{ value: "todas", label: "Todas" }, ...zones.map(([z, n]) => ({ value: z, label: `${z} ${n}` }))]}
-              />
-            )}
-          </div>
-          {shown.length ? (
-            <ul className="flex max-h-[640px] flex-col gap-2 overflow-y-auto">
-              {shown.map((l) => {
-                const project = projects.find((p) => p.id === l.projectId);
-                const options = (["visita", "llamada", "whatsapp", "dm"] as Channel[]).filter((c) => !project || project.channels.includes(c));
-                return (
-                  <li key={l.id} className="rounded-[14px] border border-border bg-raised p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <span className="flex items-center gap-1.5">
-                          {scope === "todos" && <ProjectDot project={project} size={7} />}
-                          <span className="truncate text-[14px] font-medium">{l.business}</span>
-                        </span>
-                        <span className="block truncate text-[12.5px] text-muted">
-                          {[l.niche, l.zone, STAGE_LABEL[l.stage]].filter(Boolean).join(" · ")}
-                        </span>
-                        {l.nextAction && (
-                          <span className="block text-[12px] text-faint">
-                            Programado: {CHANNEL_LABEL[l.nextAction.channel]} {relativeDay(l.nextAction.date, today).toLowerCase()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {options.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => addTo(l, c)}
-                          className="press inline-flex h-9 items-center gap-1 rounded-full border border-control px-3 text-[12.5px] font-medium hover:border-ink md:h-8"
-                        >
-                          <Plus size={13} strokeWidth={2} /> {CHANNEL_LABEL[c]}
-                        </button>
-                      ))}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <Empty>{candidates.length ? "Nada coincide con la búsqueda." : "Todos tus prospectos abiertos ya tienen fecha este día."}</Empty>
-          )}
+        <Panel className="hidden lg:sticky lg:top-6 lg:col-span-5 lg:block lg:self-start" title={`Agregar a ${relativeDay(date, today).toLowerCase()}`} count={shown.length}>
+          {picker}
         </Panel>
       </div>
+
+      <Sheet open={picking} onClose={() => setPicking(false)} title={`Agregar a ${relativeDay(date, today).toLowerCase()}`}>
+        {picker}
+      </Sheet>
     </Canvas>
   );
 }

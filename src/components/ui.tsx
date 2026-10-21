@@ -313,7 +313,12 @@ export function Sheet({
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    ref.current?.querySelector<HTMLElement>("input, select, textarea, button:not([data-close])")?.focus({ preventScroll: true });
+    // En el teléfono no se abre el teclado solo: se enfoca la hoja, no el primer campo.
+    const fine = window.matchMedia("(pointer: fine)").matches;
+    const target = fine
+      ? ref.current?.querySelector<HTMLElement>("input, select, textarea, button:not([data-close])")
+      : ref.current;
+    target?.focus({ preventScroll: true });
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
@@ -329,13 +334,15 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         className={cx(
-          "sheet relative flex max-h-[92dvh] w-full flex-col rounded-t-[22px] bg-raised shadow-[0_12px_40px_rgba(0,0,0,0.16)] md:m-2 md:max-h-none md:rounded-[22px]",
+          "sheet relative flex max-h-[94dvh] w-full flex-col rounded-t-[26px] bg-raised shadow-[0_12px_40px_rgba(0,0,0,0.16)] outline-none md:m-2 md:max-h-none md:rounded-[22px]",
           wide ? "md:w-[560px]" : "md:w-[460px]",
         )}
       >
-        <header className="flex items-center justify-between gap-3 px-5 pt-4 pb-2 md:pt-5">
-          <h2 className="text-[17px] font-semibold">{title}</h2>
+        <span aria-hidden className="mx-auto mt-2 h-1 w-10 flex-none rounded-full bg-control md:hidden" />
+        <header className="flex items-center justify-between gap-3 px-5 pt-2 pb-2 md:pt-5">
+          <h2 className="font-display text-[19px] font-semibold tracking-[-0.01em]">{title}</h2>
           <button
             type="button"
             data-close
@@ -348,7 +355,7 @@ export function Sheet({
         </header>
         <div className="flex-1 overflow-y-auto px-5 pb-5">{children}</div>
         {footer && (
-          <footer className="flex items-center justify-end gap-2 border-t border-rule px-5 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+          <footer className="flex items-center justify-end gap-2 border-t border-rule px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] max-md:[&>*]:h-12 max-md:[&>*]:flex-1 md:px-5">
             {footer}
           </footer>
         )}
@@ -363,10 +370,50 @@ export function PageTitle({ title, sub, actions }: { title: string; sub?: ReactN
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 md:mb-8">
       <div className="min-w-0">
-        <h1 className="text-[22px] font-semibold tracking-[-0.01em] md:text-[24px]">{title}</h1>
+        <h1 className="font-display text-[26px] leading-tight font-semibold tracking-[-0.02em] md:text-[28px]">{title}</h1>
         {sub && <p className="mt-1 text-[14px] text-muted">{sub}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+/* Pestañas de ancho completo (carriles de la ruta en el teléfono) ------ */
+
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+  className,
+}: {
+  value: T;
+  options: { value: T; label: string; count?: number }[];
+  onChange: (v: T) => void;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div role="tablist" aria-label={label} className={cx("flex gap-1 rounded-full bg-active p-1", className)}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(o.value)}
+            className={cx(
+              "press flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-[14px] font-medium",
+              on ? "bg-raised text-ink shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "text-muted",
+            )}
+          >
+            <span className="truncate">{o.label}</span>
+            {o.count !== undefined && <span className={cx("tabular text-[13px]", on ? "text-muted" : "text-faint")}>{o.count}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }

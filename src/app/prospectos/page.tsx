@@ -69,7 +69,7 @@ function ProspectsInner() {
         title="Prospectos"
         sub={`${plural(scoped.length, "negocio", "negocios")} · ${toContact} por contactar`}
         actions={
-          <Button variant="primary" onClick={() => openLeadForm()} className="hidden lg:inline-flex">
+          <Button variant="primary" onClick={() => openLeadForm()} className="max-lg:hidden">
             <Plus size={16} strokeWidth={2} /> Nuevo prospecto
           </Button>
         }

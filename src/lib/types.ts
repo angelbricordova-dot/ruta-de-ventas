@@ -42,6 +42,7 @@ export interface Project {
   monthlyGoal: number;
   archived: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface NextAction {
@@ -94,6 +95,7 @@ export interface Script {
   channel: Channel;
   title: string;
   body: string;
+  updatedAt?: string;
 }
 
 export interface Settings {

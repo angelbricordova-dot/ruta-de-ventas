@@ -46,32 +46,56 @@ export function useContactHref(lead: Lead, channel: Channel): string | null {
   }
 }
 
-export function ContactButton({ lead, channel, label = false }: { lead: Lead; channel: Channel; label?: boolean }) {
+export function ContactButton({
+  lead,
+  channel,
+  label = false,
+  big = false,
+}: {
+  lead: Lead;
+  channel: Channel;
+  label?: boolean;
+  big?: boolean;
+}) {
   const href = useContactHref(lead, channel);
   const Icon = ICON[channel];
   const text = ACTION_LABEL[channel];
   const cls = cx(
-    "press inline-flex flex-none items-center justify-center gap-1.5 rounded-full border border-border bg-raised text-ink hover:border-control",
-    label ? "h-11 px-4 text-[14px] font-medium md:h-[38px]" : "size-10 md:size-9",
+    "press inline-flex items-center justify-center gap-2 rounded-full border border-border bg-raised text-ink hover:border-control",
+    big
+      ? "h-[52px] flex-1 px-4 text-[16px] font-medium"
+      : label
+        ? "h-11 flex-none px-4 text-[15px] font-medium lg:h-[38px] lg:text-[14px]"
+        : "size-11 flex-none lg:size-9",
   );
   if (!href) {
     return (
       <span className={cx(cls, "pointer-events-none opacity-35")} title={`${text}: falta el dato`} aria-label={`${text} (falta el dato)`}>
-        <Icon size={16} strokeWidth={1.75} />
-        {label && text}
+        <Icon size={big ? 19 : 17} strokeWidth={1.75} />
+        {(label || big) && text}
       </span>
     );
   }
   const external = href.startsWith("http");
   return (
     <a href={href} className={cls} aria-label={text} title={text} {...(external ? { target: "_blank", rel: "noreferrer" } : {})}>
-      <Icon size={16} strokeWidth={1.75} />
-      {label && text}
+      <Icon size={big ? 19 : 17} strokeWidth={1.75} />
+      {(label || big) && text}
     </a>
   );
 }
 
-export function LogButton({ lead, channel, compact = false }: { lead: Lead; channel?: Channel; compact?: boolean }) {
+export function LogButton({
+  lead,
+  channel,
+  compact = false,
+  big = false,
+}: {
+  lead: Lead;
+  channel?: Channel;
+  compact?: boolean;
+  big?: boolean;
+}) {
   const openLog = useUI((s) => s.openLog);
   return (
     <button
@@ -79,12 +103,12 @@ export function LogButton({ lead, channel, compact = false }: { lead: Lead; chan
       onClick={() => openLog(lead.id, channel ?? null)}
       className={cx(
         "press inline-flex flex-none items-center justify-center gap-1.5 rounded-full bg-ink font-medium text-white hover:bg-[#33342f]",
-        compact ? "size-10 md:size-9" : "h-10 px-3.5 text-[13px] md:h-9",
+        big ? "h-[52px] flex-1 px-5 text-[16px]" : compact ? "size-11 lg:size-9" : "h-11 px-4 text-[14px] lg:h-9 lg:text-[13px]",
       )}
       aria-label={`Registrar contacto con ${lead.business}`}
       title="Registrar contacto"
     >
-      <Check size={16} strokeWidth={2} />
+      <Check size={big ? 20 : 17} strokeWidth={2.2} />
       {!compact && "Hecho"}
     </button>
   );
@@ -121,7 +145,7 @@ export function AgendaRow({
   const channel = lead.nextAction?.channel ?? "visita";
   const sub = [lead.nextAction?.note || CHANNEL_VERB[channel], lead.zone].filter(Boolean).join(" · ");
   return (
-    <li className="flex min-h-[63px] items-center gap-3 rounded-[14px] border border-border bg-raised py-2.5 pr-2.5 pl-3">
+    <li className="flex min-h-[68px] items-center gap-3 rounded-[16px] border border-border bg-raised py-2.5 pr-2.5 pl-3 lg:min-h-[63px] lg:rounded-[14px]">
       {order !== undefined ? (
         <span className="tabular inline-flex size-7 flex-none items-center justify-center rounded-full border border-control text-[12px] font-semibold text-muted">
           {order}
@@ -131,10 +155,10 @@ export function AgendaRow({
       )}
       <Link href={`/prospectos/${lead.id}`} className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="truncate text-[14px] font-medium">{lead.business}</span>
+          <span className="truncate text-[15px] font-medium lg:text-[14px]">{lead.business}</span>
           {showProject && order !== undefined && <ProjectDot project={project} size={7} />}
         </span>
-        <span className="mt-0.5 flex items-center gap-2 text-[12.5px] text-muted">
+        <span className="mt-0.5 flex items-center gap-2 text-[13px] text-muted lg:text-[12.5px]">
           {lead.nextAction && <Due date={lead.nextAction.date} today={today} />}
           <span className="truncate">{sub}</span>
         </span>
@@ -144,3 +168,5 @@ export function AgendaRow({
     </li>
   );
 }
+
+export { ICON as CHANNEL_ICON, ACTION_LABEL };

@@ -22,6 +22,8 @@ import { HUES } from "@/lib/labels";
 import { Button, cx, ProjectDot, Sheet } from "./ui";
 import { LeadForm } from "./LeadForm";
 import { LogContact } from "./LogContact";
+import { SyncBadge } from "./Cloud";
+import { startSync } from "@/lib/sync";
 
 const NAV = [
   { href: "/", label: "Hoy", icon: Home },
@@ -34,15 +36,17 @@ const NAV = [
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
-/** Marca: una ruta con tres paradas, la última llena. */
+/** Marca: las paradas de la ruta suben como una venta y terminan en el pin del cliente. */
 export function Mark({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 28 28" aria-hidden className="flex-none">
-      <rect width="28" height="28" rx="8" fill="#1f201d" />
-      <path d="M7 20.5c3.5 0 3-6 7-6s3.5-6 7-6" fill="none" stroke="#9fd3cc" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="0.1 3.2" />
-      <circle cx="7" cy="20.5" r="2" fill="#fff" />
-      <circle cx="14" cy="14.5" r="2" fill="#fff" />
-      <circle cx="21" cy="8.5" r="2.6" fill="#3fb3a5" />
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden className="flex-none">
+      <rect width="64" height="64" rx="16" fill="#1f201d" />
+      <path d="M12 48 L24 36 L32 42 L46 26" fill="none" stroke="#5fc4b6" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M46 31c0 0-8-7.7-8-13.6a8 8 0 0 1 16 0c0 5.9-8 13.6-8 13.6z" fill="#fff" />
+      <circle cx="46" cy="17.6" r="3" fill="#1f201d" />
+      <circle cx="12" cy="48" r="3.4" fill="#fff" />
+      <circle cx="24" cy="36" r="3.4" fill="#fff" />
+      <circle cx="32" cy="42" r="3.4" fill="#fff" />
     </svg>
   );
 }
@@ -50,7 +54,10 @@ export function Mark({ size = 28 }: { size?: number }) {
 function useHydrated() {
   const [ok, setOk] = useState(false);
   useEffect(() => {
-    const done = () => setOk(true);
+    const done = () => {
+      setOk(true);
+      startSync();
+    };
     if (useStore.persist.hasHydrated()) done();
     return useStore.persist.onFinishHydration(done);
   }, []);
@@ -122,7 +129,7 @@ function Sidebar() {
       <Link href="/" className="mb-5 flex items-center gap-2.5 px-2">
         <Mark />
         <span className="min-w-0 leading-tight">
-          <span className="block text-[14px] font-semibold">Ruta de ventas</span>
+          <span className="block font-display text-[15px] font-semibold tracking-[-0.01em]">Ruta de ventas</span>
           <span className="block truncate text-[12px] text-muted">{seller}</span>
         </span>
       </Link>
@@ -176,6 +183,9 @@ function Sidebar() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-0.5">
+        <div className="mb-1 flex items-center gap-1 px-1 text-[13px] text-muted">
+          <SyncBadge />
+        </div>
         <Link
           href="/ajustes"
           aria-current={isActive(pathname, "/ajustes") ? "page" : undefined}
@@ -192,69 +202,88 @@ function Sidebar() {
   );
 }
 
-const TABS = [NAV[0], NAV[1], NAV[2], NAV[3]];
+/** Barra inferior: Hoy, Ruta, [+], Prospectos, Más. El + queda bajo el pulgar. */
+const TABS_LEFT = [NAV[0], NAV[1]];
+const TABS_RIGHT = [NAV[2]];
+const MORE = [NAV[3], NAV[4], NAV[5], { href: "/ajustes", label: "Ajustes", icon: Settings }];
+
+function Tab({ href, label, icon: Icon, on }: { href: string; label: string; icon: typeof Home; on: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={on ? "page" : undefined}
+      className={cx("flex h-[60px] flex-col items-center justify-center gap-1 text-[11px] font-medium", on ? "text-ink" : "text-faint")}
+    >
+      <Icon size={22} strokeWidth={on ? 2 : 1.6} />
+      {label}
+    </Link>
+  );
+}
 
 function PhoneBars() {
   const pathname = usePathname();
   const openLeadForm = useUI((s) => s.openLeadForm);
   const [more, setMore] = useState(false);
-  const current = [...NAV, { href: "/ajustes", label: "Ajustes" }].find((n) => isActive(pathname, n.href));
-  const moreActive = !TABS.some((t) => isActive(pathname, t.href));
+  const moreActive = MORE.some((t) => isActive(pathname, t.href));
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-rule bg-[rgba(255,255,255,0.96)] px-4 pt-[env(safe-area-inset-top)] lg:hidden">
-        <Mark size={26} />
-        <span className="mr-auto truncate text-[16px] font-semibold">{current?.label ?? "Ruta de ventas"}</span>
-        <ScopeButton className="h-9 max-w-[46vw]" />
-        <button
-          type="button"
-          onClick={() => openLeadForm()}
-          className="press inline-flex size-9 flex-none items-center justify-center rounded-full bg-ink text-white"
-          aria-label="Nuevo prospecto"
-        >
-          <Plus size={18} strokeWidth={2} />
-        </button>
+      <header className="sticky top-0 z-30 border-b border-rule bg-[rgba(255,255,255,0.97)] pt-[env(safe-area-inset-top)] lg:hidden">
+        <div className="flex h-14 items-center gap-2.5 px-4">
+          <Link href="/" aria-label="Inicio" className="flex-none">
+            <Mark size={30} />
+          </Link>
+          <span className="mr-auto truncate font-display text-[18px] font-semibold tracking-[-0.01em]">
+            Ruta de ventas
+          </span>
+          <SyncBadge />
+          <ScopeButton className="h-9 max-w-[42vw]" />
+        </div>
       </header>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-rule bg-[rgba(255,255,255,0.97)] pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 items-center border-t border-rule bg-[rgba(255,255,255,0.98)] pb-[env(safe-area-inset-bottom)] lg:hidden"
         aria-label="Navegación"
       >
-        {TABS.map(({ href, label, icon: Icon }) => {
-          const on = isActive(pathname, href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={on ? "page" : undefined}
-              className={cx("flex h-[58px] flex-col items-center justify-center gap-1 text-[11px] font-medium", on ? "text-ink" : "text-faint")}
-            >
-              <Icon size={20} strokeWidth={on ? 2 : 1.5} />
-              {label}
-            </Link>
-          );
-        })}
+        {TABS_LEFT.map((t) => (
+          <Tab key={t.href} {...t} on={isActive(pathname, t.href)} />
+        ))}
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => openLeadForm()}
+            className="press inline-flex size-[52px] items-center justify-center rounded-full bg-ink text-white shadow-[0_4px_14px_rgba(31,32,29,0.28)]"
+            aria-label="Nuevo prospecto"
+          >
+            <Plus size={24} strokeWidth={2.2} />
+          </button>
+        </div>
+        {TABS_RIGHT.map((t) => (
+          <Tab key={t.href} {...t} on={isActive(pathname, t.href)} />
+        ))}
         <button
           type="button"
           onClick={() => setMore(true)}
-          className={cx("flex h-[58px] flex-col items-center justify-center gap-1 text-[11px] font-medium", moreActive ? "text-ink" : "text-faint")}
+          className={cx("flex h-[60px] flex-col items-center justify-center gap-1 text-[11px] font-medium", moreActive ? "text-ink" : "text-faint")}
         >
-          <MoreHorizontal size={20} strokeWidth={moreActive ? 2 : 1.5} />
+          <MoreHorizontal size={22} strokeWidth={moreActive ? 2 : 1.6} />
           Más
         </button>
       </nav>
 
       <Sheet open={more} onClose={() => setMore(false)} title="Más">
-        <ul className="flex flex-col gap-0.5">
-          {[NAV[4], NAV[5], { href: "/ajustes", label: "Ajustes", icon: Settings }].map(({ href, label, icon: Icon }) => (
+        <ul className="flex flex-col gap-1">
+          {MORE.map(({ href, label, icon: Icon }) => (
             <li key={href}>
               <Link
                 href={href}
                 onClick={() => setMore(false)}
-                className="flex h-12 items-center gap-3 rounded-[12px] px-3 text-[15px] hover:bg-active"
+                className={cx(
+                  "flex h-14 items-center gap-3.5 rounded-[14px] px-3 text-[16px]",
+                  isActive(pathname, href) ? "bg-active font-medium" : "hover:bg-active",
+                )}
               >
-                <Icon size={18} strokeWidth={1.5} className="text-muted" />
+                <Icon size={20} strokeWidth={1.6} className="text-muted" />
                 {label}
               </Link>
             </li>
@@ -289,7 +318,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <PhoneBars />
-        <main className="flex-1 pb-[calc(84px+env(safe-area-inset-bottom))] lg:pb-16">{hydrated ? children : <Loading />}</main>
+        <main className="flex-1 pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-16">{hydrated ? children : <Loading />}</main>
       </div>
       {hydrated && leadForm.open && <LeadForm />}
       {hydrated && log.open && <LogContact />}
@@ -300,7 +329,7 @@ export function Shell({ children }: { children: ReactNode }) {
 /** Contenedor estándar de las pantallas internas. */
 export function Canvas({ children, narrow = false }: { children: ReactNode; narrow?: boolean }) {
   return (
-    <div className={cx("mx-auto w-full px-4 pt-6 md:px-8 lg:pt-9", narrow ? "max-w-[760px]" : "max-w-[1180px]")}>{children}</div>
+    <div className={cx("mx-auto w-full px-4 pt-5 md:px-8 lg:pt-9", narrow ? "max-w-[760px]" : "max-w-[1180px]")}>{children}</div>
   );
 }
 
