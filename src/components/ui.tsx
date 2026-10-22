@@ -324,14 +324,21 @@ export function Sheet({
   const ref = useRef<HTMLDivElement>(null);
   const desktop = useMedia("(min-width: 768px)");
   const drag = useDragControls();
+  // onClose suele ser una función nueva en cada render; guardarla en un ref evita
+  // que el efecto se repita con cada tecla (y le robe el foco al campo que se escribe).
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // En el teléfono no se abre el teclado solo: se enfoca la hoja, no el primer campo.
+    // Solo al abrir: en el teléfono se enfoca la hoja (sin abrir el teclado);
+    // con mouse, el primer campo.
     const id = requestAnimationFrame(() => {
       const fine = window.matchMedia("(pointer: fine)").matches;
       const target = fine
@@ -344,7 +351,7 @@ export function Sheet({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   const hidden = desktop ? { x: "100%" } : { y: "100%" };
   const shown = desktop ? { x: "0%" } : { y: "0%" };
