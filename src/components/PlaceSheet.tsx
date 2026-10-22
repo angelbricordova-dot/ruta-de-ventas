@@ -136,8 +136,7 @@ export function PlaceSheet({ target, open, onClose, date }: { target: MapTarget 
   return (
     <Sheet open={open} onClose={onClose} title={place.name}>
       <p className="-mt-1 mb-4 text-[14px] text-muted">
-        {place.category}
-        {me && ` · ${distanceLabel(meters(me, place))}`}
+        {[place.category, me ? distanceLabel(meters(me, place)) : ""].filter(Boolean).join(" · ")}
         {place.rating !== null && (
           <span className="ml-2 inline-flex items-center gap-1 text-ink">
             <Star size={13} strokeWidth={0} className="fill-[#e3a008]" />

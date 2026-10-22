@@ -224,13 +224,53 @@ function mergePlaces(primary: Place[], extra: Place[]): Place[] {
  * Busca negocios cerca. Con Google, usa Google. Si no, junta TomTom (si está configurado)
  * y OpenStreetMap, para tener la mayor cantidad de negocios posible.
  */
-export async function searchPlaces(query: string, center: LatLng, radius = 3000): Promise<Place[]> {
-  if (googleEnabled() && typeof google !== "undefined") return searchGoogle(query, center, radius);
+export async function searchPlaces(query: string, center: LatLng, radius = 3000): Promise<{ places: Place[]; warnings: string[] }> {
+  if (googleEnabled() && typeof google !== "undefined") return { places: await searchGoogle(query, center, radius), warnings: [] };
   const [tomtom, osm] = await Promise.allSettled([searchTomTom(query, center, radius), searchOsm(query, center, radius)]);
   const a = tomtom.status === "fulfilled" && tomtom.value ? tomtom.value : [];
   const b = osm.status === "fulfilled" ? osm.value : [];
   if (tomtom.status === "rejected" && osm.status === "rejected") throw new Error("Sin búsqueda");
-  return mergePlaces(a, b).sort((x, y) => meters(center, x) - meters(center, y));
+  const warnings: string[] = [];
+  if (tomtom.status === "rejected") {
+    const msg = String(tomtom.reason);
+    warnings.push(
+      /502/.test(msg) ? "TomTom no respondió: revisa que la clave tenga activada la Search API." : /429/.test(msg) ? "TomTom: se acabaron las búsquedas gratis de hoy." : "TomTom no respondió.",
+    );
+  }
+  return { places: mergePlaces(a, b).sort((x, y) => meters(center, x) - meters(center, y)), warnings };
+}
+
+/* Importar desde la app de Google Maps ----------------------------- */
+
+/** Abre Google Maps buscando cerca del punto (en el iPhone abre la app si está instalada). */
+export function googleMapsSearchUrl(query: string, center: LatLng) {
+  return `https://www.google.com/maps/search/${encodeURIComponent(query || "negocios")}/@${center.lat.toFixed(5)},${center.lng.toFixed(5)},15z`;
+}
+
+/** Convierte un enlace compartido de Google Maps en un negocio para agregar a la ruta. */
+export async function placeFromGoogleLink(text: string): Promise<Place> {
+  const res = await fetch("/api/gmaps", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  const json = (await res.json()) as { place?: { name: string; address: string; lat: number; lng: number; url: string }; message?: string };
+  if (!res.ok || !json.place) throw new Error(json.message ?? "No pude leer ese enlace.");
+  const p = json.place;
+  return {
+    id: `gmaps:${p.lat.toFixed(5)},${p.lng.toFixed(5)}`,
+    name: p.name,
+    address: p.address,
+    category: "",
+    phone: "",
+    website: "",
+    rating: null,
+    ratings: 0,
+    mapsUrl: p.url,
+    lat: p.lat,
+    lng: p.lng,
+    source: "google",
+  };
 }
 
 /* Direcciones → coordenadas ---------------------------------------- */

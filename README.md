@@ -35,6 +35,18 @@ En **Ruta** está el mapa del día:
 - Los prospectos sin ubicación muestran un pin gris: tócalo para buscar su dirección, o en la ficha
   usa **Estoy aquí** cuando estés en la puerta.
 
+### Traer negocios desde Google Maps (sin tarjeta)
+
+Google Maps es el que más negocios tiene en Venezuela. Sin clave de API se usa así:
+
+1. En **Ruta**, toca **Abrir Google Maps** (busca lo que escribiste, cerca de donde está el mapa).
+2. En Google Maps abre el negocio → **Compartir** → **Copiar enlace**.
+3. Vuelve a la app y toca **Pegar enlace**: sale la ficha con nombre, dirección y ubicación exacta;
+   elige el proyecto y agrégalo a la ruta.
+
+El servidor (`/api/gmaps`) resuelve los enlaces cortos `maps.app.goo.gl` siguiendo solo
+redirecciones de Google, y saca nombre, coordenadas y dirección de la URL y de la página del lugar.
+
 ### Con o sin Google
 
 Sin configurar nada, el mapa usa OpenStreetMap (gratis): mapa de OpenStreetMap, búsqueda con Overpass,

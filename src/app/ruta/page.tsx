@@ -9,6 +9,7 @@ import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
+  ClipboardPaste,
   LocateFixed,
   MapPin,
   Navigation,
@@ -28,6 +29,8 @@ import {
   geocode,
   GOOGLE_KEY,
   googleDirections,
+  googleMapsSearchUrl,
+  placeFromGoogleLink,
   googleEnabled,
   hasCoords,
   MARACAY,
@@ -42,6 +45,7 @@ import {
   type TravelMode,
 } from "@/lib/geo";
 import { startLocation, useLocation } from "@/lib/location";
+import { findMapsUrl } from "@/lib/gmaps-link";
 import { haptic } from "@/lib/haptics";
 import { Canvas } from "@/components/Shell";
 import { ContactButton, DoneCircle, Due, ROW_MOTION, SwipeRow } from "@/components/LeadBits";
@@ -104,6 +108,8 @@ function RouteScreen() {
   const [results, setResults] = useState<Place[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [paste, setPaste] = useState({ open: false, text: "", busy: false, error: "" });
   const center = useRef<LatLng>(MARACAY);
 
   // Mapa
@@ -190,8 +196,10 @@ function RouteScreen() {
       try {
         const near = center.current;
         const here = useLocation.getState().pos;
-        const found = (await searchPlaces(q, near)).sort((a, b) => (here ? meters(here, a) - meters(here, b) : 0));
+        const { places, warnings: notes } = await searchPlaces(q, near);
+        const found = places.sort((a, b) => (here ? meters(here, a) - meters(here, b) : 0));
         setResults(found);
+        setWarnings(notes);
         if (found.length) setFit({ key: `search-${q}-${Date.now()}`, points: found.slice(0, 15) });
       } catch {
         setResults([]);
@@ -203,11 +211,40 @@ function RouteScreen() {
     [],
   );
 
+  /** Agrega un negocio copiado desde la app de Google Maps. */
+  const importLink = async (text: string) => {
+    setPaste((p) => ({ ...p, busy: true, error: "" }));
+    try {
+      const place = await placeFromGoogleLink(text);
+      setResults((prev) => [place, ...(prev ?? []).filter((p) => p.id !== place.id)]);
+      setSearched((prev) => prev || "Google Maps");
+      setPaste({ open: false, text: "", busy: false, error: "" });
+      setSelectedId(`place:${place.id}`);
+      setFocus({ key: `gmaps-${place.id}`, point: place, zoom: 17 });
+      haptic(10);
+      openTarget({ type: "place", place, niche: searched ? nicheFor(searched) : "" });
+    } catch (e) {
+      setPaste((p) => ({ ...p, open: true, busy: false, error: e instanceof Error ? e.message : "No pude leer ese enlace." }));
+    }
+  };
+
+  const pasteFromClipboard = async () => {
+    let text = "";
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      /* el navegador no dejó leer el portapapeles: se pide pegarlo a mano */
+    }
+    if (text && findMapsUrl(text)) importLink(text);
+    else setPaste({ open: true, text: "", busy: false, error: "" });
+  };
+
   const clearSearch = () => {
     setResults(null);
     setSearched("");
     setQuery("");
     setSearchError("");
+    setWarnings([]);
     setSelectedId(null);
   };
 
@@ -361,7 +398,7 @@ function RouteScreen() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
         {/* Mapa */}
         <div ref={mapBox} className="scroll-mt-20 lg:sticky lg:top-6 lg:order-2 lg:col-span-7 lg:self-start">
-          <div className="relative h-[50dvh] min-h-[320px] overflow-hidden rounded-[22px] bg-[#eef0ec] lg:h-[calc(100dvh-170px)]">
+          <div className="relative isolate h-[50dvh] min-h-[320px] overflow-hidden rounded-[22px] bg-[#eef0ec] lg:h-[calc(100dvh-170px)]">
             <MapView
               markers={markers}
               me={me}
@@ -441,6 +478,31 @@ function RouteScreen() {
             )}
           </div>
 
+          {/* Google Maps: buscar allá y traer el negocio con su enlace */}
+          <div className="mt-3 rounded-[18px] bg-accent-tint p-3.5">
+            <p className="text-[14px] leading-snug text-[#163a72] lg:text-[13px]">
+              <b className="font-semibold">¿No aparece?</b> Búscalo en Google Maps, toca <b className="font-semibold">Compartir → Copiar enlace</b> y pégalo aquí.
+            </p>
+            <div className="mt-2.5 flex gap-2">
+              <a
+                href={googleMapsSearchUrl(searched || query, center.current)}
+                target="_blank"
+                rel="noreferrer"
+                className="press inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-raised text-[15px] font-medium text-ink lg:h-9 lg:text-[13px]"
+              >
+                <MapPin size={16} strokeWidth={1.9} /> Abrir Google Maps
+              </a>
+              <button
+                type="button"
+                onClick={pasteFromClipboard}
+                disabled={paste.busy}
+                className="press inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink text-[15px] font-medium text-white disabled:opacity-50 lg:h-9 lg:text-[13px]"
+              >
+                <ClipboardPaste size={16} strokeWidth={1.9} /> {paste.busy ? "Leyendo…" : "Pegar enlace"}
+              </button>
+            </div>
+          </div>
+
           {/* Atajos de búsqueda */}
           {!results && !searching && (
             <div className="scroll-x -mx-4 mt-3 flex gap-1.5 px-4 lg:mx-0 lg:flex-wrap lg:px-0">
@@ -518,9 +580,14 @@ function RouteScreen() {
               {results && results.length > 0 && (
                 <p className="mt-2 text-[12px] text-faint">
                   Datos:{" "}
-                  {[...new Set(results.map((r) => ({ google: "Google", tomtom: "TomTom", osm: "OpenStreetMap" })[r.source]))].join(" · ")}
+                  {[...new Set(results.map((r) => ({ google: "Google Maps", tomtom: "TomTom", osm: "OpenStreetMap" })[r.source]))].join(" · ")}
                 </p>
               )}
+              {warnings.map((w) => (
+                <p key={w} className="mt-1 text-[12.5px] text-warning">
+                  {w}
+                </p>
+              ))}
             </Panel>
           )}
 
@@ -678,6 +745,34 @@ function RouteScreen() {
       )}
 
       <Picker open={picking} onClose={() => setPicking(false)} date={date} />
+
+      <Sheet
+        open={paste.open}
+        onClose={() => setPaste((p) => ({ ...p, open: false }))}
+        title="Pegar de Google Maps"
+        footer={
+          <Button variant="primary" onClick={() => importLink(paste.text)} disabled={!paste.text.trim() || paste.busy}>
+            {paste.busy ? "Leyendo…" : "Agregar"}
+          </Button>
+        }
+      >
+        <ol className="mb-4 list-decimal space-y-1 pl-5 text-[15px] text-muted lg:text-[14px]">
+          <li>En Google Maps, abre la ficha del negocio.</li>
+          <li>
+            Toca <b className="font-medium text-ink">Compartir</b> y luego <b className="font-medium text-ink">Copiar enlace</b>.
+          </li>
+          <li>Pégalo aquí abajo.</li>
+        </ol>
+        <textarea
+          value={paste.text}
+          onChange={(e) => setPaste((p) => ({ ...p, text: e.target.value, error: "" }))}
+          placeholder="https://maps.app.goo.gl/…"
+          aria-label="Enlace de Google Maps"
+          rows={3}
+          className="w-full rounded-[14px] border border-control bg-raised px-3 py-2.5 text-[16px] outline-none focus:border-ink lg:text-[14px]"
+        />
+        {paste.error && <p className="mt-2 text-[14px] text-negative">{paste.error}</p>}
+      </Sheet>
     </Canvas>
   );
 }
