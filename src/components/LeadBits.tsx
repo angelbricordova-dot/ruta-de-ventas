@@ -38,7 +38,7 @@ export function useContactHref(lead: Lead, channel: Channel): string | null {
   const text = script ? fillScript(script.body, lead, seller) : "";
   switch (channel) {
     case "visita":
-      return lead.address || lead.zone || typeof lead.lat === "number" ? mapLink(lead, city) : null;
+      return lead.address || lead.zone || lead.gquery || typeof lead.lat === "number" ? mapLink(lead, city) : null;
     case "llamada":
       return telLink(lead.phone);
     case "whatsapp":

@@ -76,51 +76,26 @@ export function parseMapsUrl(url: string): ParsedPlace {
   return out;
 }
 
-/** Coordenadas razonables (descarta ceros y valores fuera de rango). */
-const valid = (lat: number, lng: number) => Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0);
-
 /**
- * Datos que vienen en el HTML de la página del lugar. Google los pone en varios sitios;
- * se prueban del más exacto al menos exacto.
+ * Nombre y dirección desde la página del lugar (título). Las coordenadas de la página NO se usan:
+ * Google responde según dónde está el servidor (en EE. UU.) y daban ubicaciones equivocadas.
  */
-export function parseMapsHtml(html: string): Partial<ParsedPlace> & { precise?: boolean } {
-  const out: Partial<ParsedPlace> & { precise?: boolean } = {};
+export function parseMapsHtml(html: string): Partial<ParsedPlace> {
+  const out: Partial<ParsedPlace> = {};
   const meta = (prop: string) =>
     html.match(new RegExp(`<meta[^>]+(?:property|itemprop|name)="${prop}"[^>]+content="([^"]*)"`, "i"))?.[1] ??
     html.match(new RegExp(`<meta[^>]+content="([^"]*)"[^>]+(?:property|itemprop|name)="${prop}"`, "i"))?.[1];
   const decode = (s: string) => s.replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
-
   const title = meta("og:title") ?? html.match(/<title>([^<]*)<\/title>/i)?.[1];
   if (title) {
     const [name, ...rest] = decode(title).replace(/\s*-\s*Google Maps\s*$/i, "").split(" · ");
     if (name && !/^Google Maps$/i.test(name.trim())) out.name = name.trim();
     if (rest.length) out.address = rest.join(" · ").trim();
   }
-
-  const set = (lat: number, lng: number, precise: boolean) => {
-    if (out.lat === undefined && valid(lat, lng)) {
-      out.lat = lat;
-      out.lng = lng;
-      out.precise = precise;
-    }
-  };
-
-  // 1. Marcador exacto dentro de los datos del lugar: !3d<lat>!4d<lng>
-  const d34 = html.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-  if (d34) set(Number(d34[1]), Number(d34[2]), true);
-
-  // 2. Mapa de vista previa: staticmap?center=lat,lng
-  const image = meta("og:image");
-  const c = image && decode(image).match(/center=(-?\d+(?:\.\d+)?)(?:%2C|,)(-?\d+(?:\.\d+)?)/);
-  if (c) set(Number(c[1]), Number(c[2]), true);
-
-  // 3. Datos precargados del lugar: [null,null,lat,lng]
-  const nn = html.match(/\[null,null,(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})\]/);
-  if (nn) set(Number(nn[1]), Number(nn[2]), true);
-
-  // 4. Centro de la vista con la que abre la página: APP_INITIALIZATION_STATE=[[[escala,lng,lat]
-  const app = html.match(/APP_INITIALIZATION_STATE=\[\[\[(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)\]/);
-  if (app) set(Number(app[3]), Number(app[2]), false);
-
   return out;
+}
+
+/** Coordenadas dentro de Venezuela; lo demás se descarta por sospechoso. */
+export function plausible(lat: number | null, lng: number | null) {
+  return lat !== null && lng !== null && lat > 0.5 && lat < 12.7 && lng > -73.6 && lng < -59.7;
 }

@@ -74,8 +74,10 @@ export interface Lead {
   /** Ubicación en el mapa (si se conoce). */
   lat?: number;
   lng?: number;
-  /** ID del lugar en Google u OpenStreetMap, para no agregarlo dos veces. */
+  /** ID del lugar en Google, para no agregarlo dos veces. */
   placeId?: string;
+  /** "Nombre, dirección" tal como lo da Google: Google ubica el lugar con este texto. */
+  gquery?: string;
   website?: string;
   createdAt: string;
   updatedAt: string;

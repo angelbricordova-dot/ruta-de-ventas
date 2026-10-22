@@ -27,12 +27,13 @@ export function mailLink(email: string, subject = "", body = ""): string | null 
   return `mailto:${email}${qs ? `?${qs}` : ""}`;
 }
 
-type Where = Pick<Lead, "address" | "business" | "zone" | "lat" | "lng">;
+type Where = Pick<Lead, "address" | "business" | "zone" | "lat" | "lng" | "gquery">;
 
-/** Coordenadas exactas si se conocen; si no, la dirección escrita. */
+/** Coordenadas exactas si se conocen; si no, el texto de Google o la dirección escrita. */
 function place(lead: Where, city: string): string {
   if (typeof lead.lat === "number" && typeof lead.lng === "number") return `${lead.lat.toFixed(6)},${lead.lng.toFixed(6)}`;
-  const where = lead.address || `${lead.business} ${lead.zone}`;
+  if (lead.gquery) return lead.gquery;
+  const where = lead.address ? `${lead.business}, ${lead.address}` : `${lead.business} ${lead.zone}`;
   return [where, city].filter(Boolean).join(", ");
 }
 

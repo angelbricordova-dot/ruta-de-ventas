@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -10,7 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardPaste,
-  LocateFixed,
+  ExternalLink,
   MapPin,
   Navigation,
   Plus,
@@ -26,17 +26,19 @@ import { addDays, capitalize, isoDay, longDay, parseDay, plural, relativeDay } f
 import {
   distanceLabel,
   durationLabel,
-  geocode,
   GOOGLE_KEY,
-  googleDirections,
-  googleMapsSearchUrl,
-  placeFromGoogleLink,
+  googleEmbedRoute,
+  googleEmbedSearch,
   googleEnabled,
+  googleMapsSearchUrl,
+  googlePlaceText,
+  googleRouteUrl,
   hasCoords,
   MARACAY,
   meters,
+  nearestOrder,
   nicheFor,
-  optimizeOrder,
+  placeFromGoogleLink,
   routeThrough,
   searchPlaces,
   type LatLng,
@@ -44,8 +46,8 @@ import {
   type RouteResult,
   type TravelMode,
 } from "@/lib/geo";
-import { startLocation, useLocation } from "@/lib/location";
 import { findMapsUrl } from "@/lib/gmaps-link";
+import { startLocation, useLocation } from "@/lib/location";
 import { haptic } from "@/lib/haptics";
 import { Canvas } from "@/components/Shell";
 import { ContactButton, DoneCircle, Due, ROW_MOTION, SwipeRow } from "@/components/LeadBits";
@@ -60,30 +62,31 @@ const LANES: Lane[] = ["pie", "telefono", "mensajes"];
 const weekdayShort = new Intl.DateTimeFormat("es", { weekday: "short" });
 const MODE_KEY = "ruta-de-ventas:modo";
 
+/** Una visita tiene dónde ir si tiene coordenadas, texto de Google o dirección. */
+const hasPlace = (l: Lead) => hasCoords(l) || !!l.gquery || !!l.address;
+
 export default function RoutePage() {
-  // Con clave de Google, toda la pantalla vive dentro del proveedor de Maps (mapa, Places, geocodificación).
+  // Con clave de Google: mapa interactivo y búsqueda dentro de la app. Sin clave: mapa de Google incrustado.
   return googleEnabled() ? (
     <APIProvider apiKey={GOOGLE_KEY} language="es" region="VE">
-      <RouteScreen />
+      <RouteScreen interactive />
     </APIProvider>
   ) : (
-    <RouteScreen />
+    <RouteScreen interactive={false} />
   );
 }
 
-function RouteScreen() {
+function RouteScreen({ interactive }: { interactive: boolean }) {
   const scope = useStore((s) => s.scope);
   const allLeads = useStore((s) => s.leads);
   const projects = useStore((s) => s.projects);
-  const city = useStore((s) => s.settings.city);
+  const city = useStore((s) => s.settings.city) || "Maracay";
   const schedule = useStore((s) => s.schedule);
   const moveInRoute = useStore((s) => s.moveInRoute);
   const setRouteOrder = useStore((s) => s.setRouteOrder);
-  const patchLead = useStore((s) => s.patchLead);
   const projectMap = useProjectMap();
   const openLeadForm = useUI((s) => s.openLeadForm);
   const me = useLocation((s) => s.pos);
-  const locStatus = useLocation((s) => s.status);
 
   const today = isoDay();
   const [date, setDate] = useState(today);
@@ -103,25 +106,23 @@ function RouteScreen() {
     }
   };
 
-  // Búsqueda de negocios en el mapa
+  // Búsqueda: en el mapa incrustado se muestra la búsqueda de Google; con clave, la lista de Places.
   const [query, setQuery] = useState("");
   const [searched, setSearched] = useState("");
   const [results, setResults] = useState<Place[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState("");
-  const [warnings, setWarnings] = useState<string[]>([]);
-  const [paste, setPaste] = useState({ open: false, text: "", busy: false, error: "" });
-  const center = useRef<LatLng>(MARACAY);
+  const [focusText, setFocusText] = useState("");
 
-  // Mapa
+  // Mapa interactivo
   const [fit, setFit] = useState<{ key: string; points: LatLng[] } | null>(null);
   const [focus, setFocus] = useState<{ key: string; point: LatLng; zoom?: number } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<{ target: MapTarget | null; open: boolean; n: number }>({ target: null, open: false, n: 0 });
   const [route, setRoute] = useState<RouteResult | null>(null);
-  const [routing, setRouting] = useState(false);
-  const [optimizing, setOptimizing] = useState(false);
+  const center = useRef<LatLng>(MARACAY);
+
+  const [sheet, setSheet] = useState<{ target: MapTarget | null; open: boolean; n: number }>({ target: null, open: false, n: 0 });
   const [picking, setPicking] = useState(false);
+  const [paste, setPaste] = useState({ open: false, text: "", busy: false, error: "" });
   const mapBox = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -136,94 +137,123 @@ function RouteScreen() {
       .filter((x) => LANE_OF[x.nextAction!.channel] === l)
       .sort((a, b) => (l === "pie" ? a.routeOrder - b.routeOrder : a.business.localeCompare(b.business)));
   const visits = lane("pie");
-  const stops = visits.filter(hasCoords);
-  const stopKey = stops.map((s) => `${s.id}@${s.lat.toFixed(5)},${s.lng.toFixed(5)}`).join("|");
+  const stops = visits.filter(hasPlace);
+  const located = stops.filter(hasCoords);
+  const origin = isToday && me ? me : null;
+  const here = me ?? MARACAY;
 
   const week = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const countOn = (d: string) => agendaFor(leads, d, d === today).length;
 
-  /* Ruta trazada ---------------------------------------------------- */
-  // Hoy la ruta parte de tu ubicación; se vuelve a trazar si te alejas más de 250 m del punto de partida.
-  const origin = useRef<LatLng | null>(null);
-  const useMe = isToday && !!me;
-  const originKey = useMe && me ? (origin.current && meters(origin.current, me) < 250 ? "same" : `${me.lat.toFixed(3)},${me.lng.toFixed(3)}`) : "none";
+  /* Mapa incrustado de Google ------------------------------------- */
+  const embedSrc = useMemo(() => {
+    if (searched) return googleEmbedSearch(searched, here, 14);
+    if (focusText) return googleEmbedSearch(focusText, here, 17);
+    if (stops.length) return googleEmbedRoute(origin, stops, mode, city);
+    return googleEmbedSearch("", here, 15);
+    // La ubicación se redondea para no recargar el mapa con cada paso.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searched, focusText, stops.map((s) => googlePlaceText(s, city)).join("|"), mode, origin ? `${origin.lat.toFixed(3)},${origin.lng.toFixed(3)}` : "", here.lat.toFixed(2)]);
 
+  /* Mapa interactivo (con clave) ---------------------------------- */
+  const locatedKey = located.map((s) => `${s.id}@${s.lat},${s.lng}`).join("|");
   useEffect(() => {
-    const pts: LatLng[] = [...(useMe && me ? [me] : []), ...stops];
-    if (useMe && me) origin.current = { lat: me.lat, lng: me.lng };
+    if (!interactive) return;
+    const pts: LatLng[] = [...(origin ? [origin] : []), ...located];
     if (pts.length < 2) {
       setRoute(null);
       return;
     }
     let cancelled = false;
-    setRouting(true);
     routeThrough(pts, mode)
       .then((r) => !cancelled && setRoute(r))
-      .catch(() => !cancelled && setRoute(null))
-      .finally(() => !cancelled && setRouting(false));
+      .catch(() => !cancelled && setRoute(null));
     return () => {
       cancelled = true;
     };
-    // Se recalcula cuando cambian las paradas, el modo o el punto de partida.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopKey, mode, originKey]);
+  }, [interactive, locatedKey, mode, origin ? `${origin.lat.toFixed(3)},${origin.lng.toFixed(3)}` : ""]);
 
-  // Encuadra la ruta del día al abrir y al cambiar de día.
   useEffect(() => {
-    const pts: LatLng[] = [...stops, ...(isToday && me ? [me] : [])];
-    if (pts.length) setFit({ key: `day-${date}-${stops.length}`, points: pts });
+    if (!interactive) return;
+    const pts: LatLng[] = [...located, ...(origin ? [origin] : [])];
+    if (pts.length) setFit({ key: `day-${date}-${located.length}`, points: pts });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, stops.length]);
+  }, [interactive, date, located.length]);
 
-  // La primera vez que llega tu ubicación, si no hay paradas, centra en ti.
-  const centeredOnMe = useRef(false);
-  useEffect(() => {
-    if (me && !centeredOnMe.current) {
-      centeredOnMe.current = true;
-      if (stops.length === 0) setFocus({ key: "me-first", point: me, zoom: 15 });
+  const markers: MapMarker[] = useMemo(() => {
+    if (!interactive) return [];
+    const list: MapMarker[] = [];
+    results?.filter(hasCoords).forEach((p) =>
+      list.push({ id: `place:${p.id}`, kind: "result", lat: p.lat, lng: p.lng, title: p.name, selected: selectedId === `place:${p.id}` }),
+    );
+    located.forEach((s) =>
+      list.push({
+        id: `lead:${s.id}`,
+        kind: "stop",
+        lat: s.lat,
+        lng: s.lng,
+        title: s.business,
+        label: String(visits.indexOf(s) + 1),
+        color: HUES[projectMap.get(s.projectId)?.hue ?? "pizarra"].ink,
+        selected: selectedId === `lead:${s.id}`,
+      }),
+    );
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interactive, results, locatedKey, selectedId, projectMap]);
+
+  /* Acciones ---------------------------------------------------- */
+  const openTarget = (target: MapTarget) => setSheet((s) => ({ target, open: true, n: s.n + 1 }));
+
+  const runSearch = async (text: string) => {
+    const q = text.trim();
+    if (!q) return;
+    setQuery(q);
+    setSearched(q);
+    setFocusText("");
+    (document.activeElement as HTMLElement | null)?.blur();
+    mapBox.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!interactive) return;
+    setSearching(true);
+    try {
+      const found = await searchPlaces(q, center.current);
+      setResults(found);
+      if (found.length) setFit({ key: `search-${q}-${Date.now()}`, points: found.filter(hasCoords).slice(0, 15) as LatLng[] });
+    } catch {
+      setResults([]);
+      toast("No se pudo buscar en Google. Revisa tu conexión.");
+    } finally {
+      setSearching(false);
     }
-  }, [me, stops.length]);
+  };
 
-  /* Búsqueda -------------------------------------------------------- */
-  const runSearch = useCallback(
-    async (text: string) => {
-      const q = text.trim();
-      if (!q) return;
-      setQuery(q);
-      setSearched(q);
-      setSearching(true);
-      setSearchError("");
-      setSelectedId(null);
-      try {
-        const near = center.current;
-        const here = useLocation.getState().pos;
-        const { places, warnings: notes } = await searchPlaces(q, near);
-        const found = places.sort((a, b) => (here ? meters(here, a) - meters(here, b) : 0));
-        setResults(found);
-        setWarnings(notes);
-        if (found.length) setFit({ key: `search-${q}-${Date.now()}`, points: found.slice(0, 15) });
-      } catch {
-        setResults([]);
-        setSearchError("No se pudo buscar. Revisa tu conexión e intenta de nuevo.");
-      } finally {
-        setSearching(false);
-      }
-    },
-    [],
-  );
+  const clearSearch = () => {
+    setQuery("");
+    setSearched("");
+    setResults(null);
+    setFocusText("");
+    setSelectedId(null);
+  };
 
-  /** Agrega un negocio copiado desde la app de Google Maps. */
+  const showStop = (lead: Lead) => {
+    mapBox.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (interactive && hasCoords(lead)) {
+      setSelectedId(`lead:${lead.id}`);
+      setFocus({ key: `${lead.id}-${Date.now()}`, point: lead });
+    } else {
+      setSearched("");
+      setFocusText(googlePlaceText(lead, city));
+    }
+  };
+
   const importLink = async (text: string) => {
     setPaste((p) => ({ ...p, busy: true, error: "" }));
     try {
       const place = await placeFromGoogleLink(text);
-      setResults((prev) => [place, ...(prev ?? []).filter((p) => p.id !== place.id)]);
-      setSearched((prev) => prev || "Google Maps");
       setPaste({ open: false, text: "", busy: false, error: "" });
-      setSelectedId(`place:${place.id}`);
-      setFocus({ key: `gmaps-${place.id}`, point: place, zoom: 17 });
       haptic(10);
-      openTarget({ type: "place", place, niche: searched ? nicheFor(searched) : "" });
+      openTarget({ type: "place", place, niche: searched ? nicheFor(searched) : nicheFor(place.name) === place.name ? "" : nicheFor(place.name) });
     } catch (e) {
       setPaste((p) => ({ ...p, open: true, busy: false, error: e instanceof Error ? e.message : "No pude leer ese enlace." }));
     }
@@ -240,113 +270,20 @@ function RouteScreen() {
     else setPaste({ open: true, text: "", busy: false, error: "" });
   };
 
-  const clearSearch = () => {
-    setResults(null);
-    setSearched("");
-    setQuery("");
-    setSearchError("");
-    setWarnings([]);
-    setSelectedId(null);
+  const orderByDistance = () => {
+    const ordered = nearestOrder(origin, visits);
+    setRouteOrder(ordered.map((l) => l.id));
+    haptic(10);
+    toast("Ruta ordenada", { description: origin ? "Desde donde estás, de la más cercana a la más lejana." : "De la más cercana a la más lejana." });
   };
 
-  /* Marcadores ------------------------------------------------------ */
-  const markers: MapMarker[] = useMemo(() => {
-    const stopIds = new Set(stops.map((s) => s.id));
-    const list: MapMarker[] = [];
-    // Otros prospectos abiertos con ubicación: puntos pequeños para sumarlos a la ruta.
-    leads
-      .filter((l) => hasCoords(l) && !stopIds.has(l.id) && OPEN_STAGES.includes(l.stage))
-      .forEach((l) =>
-        list.push({
-          id: `lead:${l.id}`,
-          kind: "lead",
-          lat: l.lat!,
-          lng: l.lng!,
-          title: l.business,
-          color: HUES[projectMap.get(l.projectId)?.hue ?? "pizarra"].ink,
-          selected: selectedId === `lead:${l.id}`,
-        }),
-      );
-    results?.forEach((p) =>
-      list.push({ id: `place:${p.id}`, kind: "result", lat: p.lat, lng: p.lng, title: p.name, selected: selectedId === `place:${p.id}` }),
-    );
-    stops.forEach((s, i) =>
-      list.push({
-        id: `lead:${s.id}`,
-        kind: "stop",
-        lat: s.lat,
-        lng: s.lng,
-        title: s.business,
-        label: String(visits.indexOf(s) + 1 || i + 1),
-        color: HUES[projectMap.get(s.projectId)?.hue ?? "pizarra"].ink,
-        selected: selectedId === `lead:${s.id}`,
-      }),
-    );
-    return list;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leads, stopKey, results, selectedId, projectMap]);
-
-  const openTarget = (target: MapTarget) => setSheet((s) => ({ target, open: true, n: s.n + 1 }));
-
-  const onSelect = (id: string) => {
-    setSelectedId(id);
-    haptic(5);
-    if (id.startsWith("place:")) {
-      const place = results?.find((p) => `place:${p.id}` === id);
-      if (place) openTarget({ type: "place", place, niche: nicheFor(searched) });
-    } else {
-      const lead = allLeads.find((l) => `lead:${l.id}` === id);
-      if (lead) openTarget({ type: "lead", lead });
-    }
-  };
-
-  const showOnMap = (p: LatLng, id: string) => {
-    setSelectedId(id);
-    setFocus({ key: `${id}-${Date.now()}`, point: p });
-    mapBox.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  };
-
-  const locate = async (lead: Lead) => {
-    const text = [lead.address || lead.business, lead.zone, city || "Maracay", "Venezuela"].filter(Boolean).join(", ");
-    try {
-      const pos = await geocode(text, me ?? center.current);
-      if (pos) {
-        patchLead(lead.id, pos);
-        showOnMap(pos, `lead:${lead.id}`);
-        toast(lead.business, { description: "Ubicado en el mapa. Si no es ahí, edita la dirección." });
-      } else toast(lead.business, { description: "No encontré esa dirección. Agrega una más precisa en la ficha." });
-    } catch {
-      toast("No se pudo buscar la dirección");
-    }
-  };
-
-  const optimize = async () => {
-    if (stops.length < 2) return;
-    setOptimizing(true);
-    try {
-      const start = useMe && me ? me : stops[0];
-      const list = useMe ? stops : stops.slice(1);
-      const order = await optimizeOrder(start, list, mode);
-      if (order) {
-        const ordered = useMe ? order.map((i) => list[i]) : [stops[0], ...order.map((i) => list[i])];
-        const rest = visits.filter((v) => !hasCoords(v));
-        setRouteOrder([...ordered, ...rest].map((l) => l.id));
-        haptic(10);
-        toast("Ruta ordenada", { description: "De la parada más cercana a la más lejana." });
-      }
-    } catch {
-      toast("No se pudo ordenar la ruta. Revisa tu conexión.");
-    } finally {
-      setOptimizing(false);
-    }
-  };
-
-  const directions = googleDirections(stops, mode);
-  const nextStop = isToday && me && stops[0] ? stops[0] : null;
+  const directions = googleRouteUrl(stops, mode, city);
+  const nextStop = isToday && me ? located.find((s) => s.id === stops[0]?.id) : undefined;
   const quickNiches = useMemo(() => {
     const fromProjects = projects.filter((p) => !p.archived && (scope === "todos" || p.id === scope)).flatMap((p) => p.niches);
     return [...new Set([...fromProjects, ...NICHES.slice(0, 6)])].slice(0, 10);
   }, [projects, scope]);
+  const openInGoogle = searched ? googleMapsSearchUrl(searched, here) : directions ?? googleMapsSearchUrl("", here);
 
   return (
     <Canvas>
@@ -373,7 +310,10 @@ function RouteScreen() {
               <button
                 key={d}
                 type="button"
-                onClick={() => setDate(d)}
+                onClick={() => {
+                  setDate(d);
+                  setFocusText("");
+                }}
                 aria-pressed={on}
                 className={cx(
                   "press flex h-12 min-w-[52px] flex-1 flex-col items-center justify-center rounded-[14px] text-[12px]",
@@ -397,133 +337,132 @@ function RouteScreen() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-        {/* Mapa */}
+        {/* Mapa de Google */}
         <div ref={mapBox} className="scroll-mt-20 lg:sticky lg:top-6 lg:order-2 lg:col-span-7 lg:self-start">
-          <div className="relative isolate h-[50dvh] min-h-[320px] overflow-hidden rounded-[22px] bg-[#eef0ec] lg:h-[calc(100dvh-170px)]">
-            <MapView
-              markers={markers}
-              me={me}
-              path={route?.path ?? null}
-              onSelect={onSelect}
-              onMove={(c) => (center.current = c)}
-              fit={fit}
-              focus={focus}
-              initialCenter={me ?? MARACAY}
-            />
-
-            {/* Buscador sobre el mapa */}
-            <form
-              className="absolute inset-x-3 top-3 z-[500]"
-              onSubmit={(e) => {
-                e.preventDefault();
-                (document.activeElement as HTMLElement | null)?.blur();
-                runSearch(query);
-              }}
-            >
-              <label className="relative block">
-                <Search size={17} strokeWidth={1.9} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar negocios cerca: gimnasio, taller…"
-                  aria-label="Buscar negocios en el mapa"
-                  enterKeyHint="search"
-                  className="h-12 w-full rounded-full border-0 bg-raised pr-11 pl-11 text-[16px] shadow-[0_2px_12px_rgba(0,0,0,0.14)] outline-none placeholder:text-faint lg:text-[14px]"
-                />
-                {(query || results) && (
-                  <button
-                    type="button"
-                    onClick={clearSearch}
-                    aria-label="Limpiar búsqueda"
-                    className="absolute top-1/2 right-2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:bg-active"
-                  >
-                    <X size={16} strokeWidth={1.9} />
-                  </button>
-                )}
-              </label>
-            </form>
-
-            {/* A pie o en carro: cambia el trazado y el tiempo estimado */}
-            <div className="absolute bottom-8 left-3 z-[500] rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.16)]">
-              <Segmented
-                label="Cómo vas"
-                value={mode}
-                onChange={setMode}
-                options={[
-                  { value: "pie", label: "A pie" },
-                  { value: "carro", label: "Carro" },
-                ]}
-                className="w-[150px]"
+          <form
+            className="mb-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              runSearch(query);
+            }}
+          >
+            <label className="relative block">
+              <Search size={17} strokeWidth={1.9} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar en Google Maps: gimnasio, taller…"
+                aria-label="Buscar negocios en Google Maps"
+                enterKeyHint="search"
+                className="h-12 w-full rounded-full bg-surface pr-11 pl-11 text-[16px] outline-none placeholder:text-faint focus:bg-raised focus:ring-2 focus:ring-ink/10 lg:text-[14px]"
               />
-            </div>
+              {(query || searched || focusText) && (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  aria-label="Volver a la ruta"
+                  className="absolute top-1/2 right-2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:bg-active"
+                >
+                  <X size={16} strokeWidth={1.9} />
+                </button>
+              )}
+            </label>
+          </form>
 
-            {/* Mi ubicación */}
-            <button
-              type="button"
-              onClick={() => {
-                if (me) setFocus({ key: `me-${Date.now()}`, point: me, zoom: 16 });
-                else if (locStatus === "denied")
-                  toast("Ubicación desactivada", { description: "Actívala en Ajustes del iPhone → Privacidad → Localización → Safari." });
-                else startLocation();
-              }}
-              aria-label="Mi ubicación"
-              className="press absolute right-3 bottom-8 z-[500] inline-flex size-12 items-center justify-center rounded-full bg-raised text-accent shadow-[0_2px_12px_rgba(0,0,0,0.16)]"
-            >
-              <LocateFixed size={21} strokeWidth={1.9} />
-            </button>
-
-            {searching && (
-              <div className="absolute inset-x-0 top-[68px] z-[500] flex justify-center">
-                <span className="rounded-full bg-ink px-4 py-2 text-[13px] font-medium text-white shadow-lg">Buscando “{searched}”…</span>
-              </div>
-            )}
-          </div>
-
-          {/* Google Maps: buscar allá y traer el negocio con su enlace */}
-          <div className="mt-3 rounded-[18px] bg-accent-tint p-3.5">
-            <p className="text-[14px] leading-snug text-[#163a72] lg:text-[13px]">
-              <b className="font-semibold">¿No aparece?</b> Búscalo en Google Maps, toca <b className="font-semibold">Compartir → Copiar enlace</b> y pégalo aquí.
-            </p>
-            <div className="mt-2.5 flex gap-2">
-              <a
-                href={googleMapsSearchUrl(searched || query, center.current)}
-                target="_blank"
-                rel="noreferrer"
-                className="press inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-raised text-[15px] font-medium text-ink lg:h-9 lg:text-[13px]"
-              >
-                <MapPin size={16} strokeWidth={1.9} /> Abrir Google Maps
-              </a>
-              <button
-                type="button"
-                onClick={pasteFromClipboard}
-                disabled={paste.busy}
-                className="press inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink text-[15px] font-medium text-white disabled:opacity-50 lg:h-9 lg:text-[13px]"
-              >
-                <ClipboardPaste size={16} strokeWidth={1.9} /> {paste.busy ? "Leyendo…" : "Pegar enlace"}
-              </button>
-            </div>
-          </div>
-
-          {/* Atajos de búsqueda */}
-          {!results && !searching && (
-            <div className="scroll-x -mx-4 mt-3 flex gap-1.5 px-4 lg:mx-0 lg:flex-wrap lg:px-0">
+          {!searched && (
+            <div className="scroll-x -mx-4 mb-3 flex gap-1.5 px-4 lg:mx-0 lg:flex-wrap lg:px-0">
               {quickNiches.map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => runSearch(n)}
-                  className="press h-10 flex-none rounded-full bg-surface px-4 text-[14px] font-medium hover:bg-active lg:h-8 lg:text-[13px]"
+                  className="press h-9 flex-none rounded-full bg-surface px-3.5 text-[14px] font-medium hover:bg-active lg:h-8 lg:text-[13px]"
                 >
                   {n}
                 </button>
               ))}
             </div>
           )}
+
+          <div className="relative isolate h-[52dvh] min-h-[340px] overflow-hidden rounded-[22px] bg-[#e8eae6] lg:h-[calc(100dvh-230px)]">
+            {interactive ? (
+              <MapView
+                markers={markers}
+                me={me}
+                path={route?.path ?? null}
+                onSelect={(id) => {
+                  setSelectedId(id);
+                  const place = results?.find((p) => `place:${p.id}` === id);
+                  if (place) openTarget({ type: "place", place, niche: nicheFor(searched) });
+                  const lead = allLeads.find((l) => `lead:${l.id}` === id);
+                  if (lead) openTarget({ type: "lead", lead });
+                }}
+                onMove={(c) => (center.current = c)}
+                fit={fit}
+                focus={focus}
+                initialCenter={here}
+              />
+            ) : (
+              <iframe
+                key={embedSrc}
+                src={embedSrc}
+                title="Mapa de Google"
+                className="h-full w-full border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            )}
+            {(searched || focusText) && (
+              <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  className="pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-medium text-white shadow-lg"
+                >
+                  <X size={14} strokeWidth={2.2} /> Volver a la ruta
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <Segmented
+              label="Cómo vas"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "pie", label: "A pie" },
+                { value: "carro", label: "Carro" },
+              ]}
+              className="w-[160px] flex-none"
+            />
+            <a href={openInGoogle} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-1.5 text-[14px] font-medium text-accent lg:text-[13px]">
+              Abrir en Google Maps <ExternalLink size={14} strokeWidth={1.9} />
+            </a>
+          </div>
+
+          {/* Traer un negocio desde Google Maps */}
+          {!interactive && (
+            <div className="mt-3 rounded-[18px] bg-accent-tint p-3.5">
+              <p className="text-[14px] leading-snug text-[#163a72] lg:text-[13px]">
+                <b className="font-semibold">¿Te interesa uno?</b> Ábrelo en Google Maps, toca <b className="font-semibold">Compartir → Copiar enlace</b> y pégalo aquí.
+              </p>
+              <button
+                type="button"
+                onClick={pasteFromClipboard}
+                disabled={paste.busy}
+                className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-ink text-[15px] font-medium text-white disabled:opacity-50 lg:h-9 lg:text-[13px]"
+              >
+                <ClipboardPaste size={16} strokeWidth={1.9} /> {paste.busy ? "Leyendo…" : "Pegar enlace de Google Maps"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Lista */}
         <div className="flex flex-col gap-8 lg:order-1 lg:col-span-5">
-          {(results || searching) && (
+          {interactive && (results || searching) && (
             <Panel
               title={searching ? "Buscando…" : `Cerca: ${searched}`}
               count={results?.length}
@@ -533,22 +472,26 @@ function RouteScreen() {
                 </button>
               }
             >
-              {searchError ? (
-                <Empty>{searchError}</Empty>
-              ) : results && results.length === 0 && !searching ? (
-                <Empty>No encontré “{searched}” por aquí. Mueve el mapa a otra zona o prueba otra palabra.</Empty>
+              {results && results.length === 0 && !searching ? (
+                <Empty>No encontré “{searched}” por aquí. Mueve el mapa o prueba otra palabra.</Empty>
               ) : (
-                <ul className="relative">
+                <ul>
                   {results?.map((p) => {
                     const id = `place:${p.id}`;
                     const known = allLeads.some((l) => l.placeId === p.id);
                     return (
                       <li key={p.id} className="flex min-h-[64px] items-center gap-3 border-b border-rule py-2 last:border-0">
-                        <button type="button" onClick={() => showOnMap(p, id)} className="min-w-0 flex-1 text-left">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedId(id);
+                            if (hasCoords(p)) setFocus({ key: `${id}-${Date.now()}`, point: p });
+                          }}
+                          className="min-w-0 flex-1 text-left"
+                        >
                           <span className={cx("block truncate text-[16px] font-medium lg:text-[14px]", selectedId === id && "text-accent")}>{p.name}</span>
                           <span className="flex items-center gap-1.5 truncate text-[14px] text-muted lg:text-[12.5px]">
-                            {me && <span className="tabular">{distanceLabel(meters(me, p))}</span>}
-                            {me && " · "}
+                            {me && hasCoords(p) && <span className="tabular">{distanceLabel(meters(me, p))} · </span>}
                             <span className="truncate">{p.address || p.category}</span>
                             {p.rating !== null && (
                               <span className="inline-flex flex-none items-center gap-0.5 text-ink">
@@ -563,10 +506,7 @@ function RouteScreen() {
                         ) : (
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedId(id);
-                              openTarget({ type: "place", place: p, niche: nicheFor(searched) });
-                            }}
+                            onClick={() => openTarget({ type: "place", place: p, niche: nicheFor(searched) })}
                             aria-label={`Agregar ${p.name}`}
                             className="press inline-flex size-11 flex-none items-center justify-center rounded-full bg-ink text-white lg:size-9"
                           >
@@ -578,58 +518,40 @@ function RouteScreen() {
                   })}
                 </ul>
               )}
-              {results && results.length > 0 && (
-                <p className="mt-2 text-[12px] text-faint">
-                  Datos:{" "}
-                  {[...new Set(results.map((r) => ({ google: "Google Maps", tomtom: "TomTom", osm: "OpenStreetMap" })[r.source]))].join(" · ")}
-                </p>
-              )}
-              {warnings.map((w) => (
-                <p key={w} className="mt-1 text-[12.5px] text-warning">
-                  {w}
-                </p>
-              ))}
             </Panel>
           )}
 
-          {/* Resumen de la ruta a pie */}
+          {/* Resumen de la ruta */}
           <section className="rounded-[20px] bg-surface p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[16px] font-semibold lg:text-[15px]">
-                  {stops.length ? plural(stops.length, "parada", "paradas") : "Sin paradas en el mapa"}
-                  {route && (
-                    <span className="font-normal text-muted">
-                      {" "}
-                      · {distanceLabel(route.meters)} · {durationLabel(route.seconds)}
-                    </span>
-                  )}
-                  {routing && <span className="font-normal text-faint"> · trazando…</span>}
-                </p>
-                {nextStop ? (
-                  <p className="truncate text-[14px] text-muted lg:text-[13px]">
-                    Siguiente: {nextStop.business} · {distanceLabel(meters(me!, nextStop))}
-                  </p>
-                ) : (
-                  <p className="text-[14px] text-muted lg:text-[13px]">
-                    {stops.length ? (isToday ? "Activa tu ubicación para salir desde donde estás." : "Ruta planificada.") : "Busca negocios en el mapa y agrégalos."}
-                  </p>
-                )}
-              </div>
-            </div>
+            <p className="text-[16px] font-semibold lg:text-[15px]">
+              {stops.length ? plural(stops.length, "parada", "paradas") : "Sin paradas"}
+              {interactive && route && (
+                <span className="font-normal text-muted">
+                  {" "}
+                  · {distanceLabel(route.meters)} · {durationLabel(route.seconds)}
+                </span>
+              )}
+            </p>
+            <p className="text-[14px] text-muted lg:text-[13px]">
+              {nextStop && me
+                ? `Siguiente: ${nextStop.business} · ${distanceLabel(meters(me, nextStop))}`
+                : stops.length
+                  ? "Google traza la ruta en el mapa, en este orden."
+                  : "Busca en Google Maps y pega el enlace del negocio para agregarlo."}
+            </p>
             {stops.length > 0 && (
               <div className="mt-3 flex gap-2">
-                <Button onClick={optimize} disabled={stops.length < 2 || optimizing} className="flex-1 bg-raised hover:bg-white">
-                  <Shuffle size={16} strokeWidth={1.9} /> {optimizing ? "Ordenando…" : "Ordenar mejor"}
+                <Button onClick={orderByDistance} disabled={located.length < 2} className="flex-1 bg-raised hover:bg-white">
+                  <Shuffle size={16} strokeWidth={1.9} /> Ordenar
                 </Button>
                 {directions && (
                   <a
                     href={directions}
                     target="_blank"
                     rel="noreferrer"
-                    className="press inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink px-4 text-[15px] font-medium text-white lg:h-[38px] lg:text-[14px]"
+                    className="press inline-flex h-11 flex-[1.4] items-center justify-center gap-1.5 rounded-full bg-ink px-4 text-[15px] font-medium text-white lg:h-[38px] lg:text-[14px]"
                   >
-                    <Navigation size={16} strokeWidth={1.9} /> Ir con Maps
+                    <Navigation size={16} strokeWidth={1.9} /> Ir con Google Maps
                   </a>
                 )}
               </div>
@@ -646,7 +568,7 @@ function RouteScreen() {
                       {items.map((lead, i) => {
                         const project = projectMap.get(lead.projectId);
                         const channel = lead.nextAction!.channel;
-                        const located = hasCoords(lead);
+                        const where = hasPlace(lead);
                         return (
                           <motion.li key={lead.id} {...ROW_MOTION} className="border-b border-rule last:border-0">
                             <RowShell swipe={isToday} lead={lead} channel={channel}>
@@ -654,12 +576,12 @@ function RouteScreen() {
                               {l === "pie" && (
                                 <button
                                   type="button"
-                                  onClick={() => (located ? showOnMap(lead as Lead & LatLng, `lead:${lead.id}`) : locate(lead))}
-                                  aria-label={located ? `Ver ${lead.business} en el mapa` : `Ubicar ${lead.business} en el mapa`}
+                                  onClick={() => (where ? showStop(lead) : openLeadForm(lead.id))}
+                                  aria-label={where ? `Ver ${lead.business} en el mapa` : `Agregar dirección a ${lead.business}`}
                                   className="tabular inline-flex size-8 flex-none items-center justify-center rounded-full text-[13px] font-semibold text-white"
-                                  style={{ background: located ? HUES[project?.hue ?? "pizarra"].ink : "var(--control)" }}
+                                  style={{ background: where ? HUES[project?.hue ?? "pizarra"].ink : "var(--control)" }}
                                 >
-                                  {located ? i + 1 : <MapPin size={14} strokeWidth={2} />}
+                                  {where ? i + 1 : <MapPin size={14} strokeWidth={2} />}
                                 </button>
                               )}
                               <Link href={`/prospectos/${lead.id}`} draggable={false} className="min-w-0 flex-1 py-1">
@@ -670,11 +592,11 @@ function RouteScreen() {
                                 <span className="flex items-center gap-2 text-[14px] text-muted lg:text-[12.5px]">
                                   <Due date={lead.nextAction!.date} today={today} />
                                   <span className="truncate">
-                                    {l === "pie" && !located
-                                      ? "Sin ubicación · toca el pin para ubicarlo"
+                                    {l === "pie" && !where
+                                      ? "Sin dirección · toca el pin para agregarla"
                                       : [
                                           l !== "pie" ? CHANNEL_LABEL[channel] : "",
-                                          me && located ? distanceLabel(meters(me, lead as Lead & LatLng)) : "",
+                                          me && hasCoords(lead) ? distanceLabel(meters(me, lead)) : "",
                                           lead.nextAction?.note || lead.niche,
                                         ]
                                           .filter(Boolean)
@@ -734,15 +656,7 @@ function RouteScreen() {
       </div>
 
       {sheet.n > 0 && (
-        <PlaceSheet
-          key={sheet.n}
-          target={sheet.target}
-          open={sheet.open}
-          date={date}
-          onClose={() => {
-            setSheet((s) => ({ ...s, open: false }));
-          }}
-        />
+        <PlaceSheet key={sheet.n} target={sheet.target} open={sheet.open} date={date} onClose={() => setSheet((s) => ({ ...s, open: false }))} />
       )}
 
       <Picker open={picking} onClose={() => setPicking(false)} date={date} />

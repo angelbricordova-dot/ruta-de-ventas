@@ -21,59 +21,30 @@ Proyectos iniciales:
 | Guiones | Textos para llamadas, visitas, WhatsApp y DMs con `{negocio}`, `{contacto}`, `{rubro}`, `{zona}`, `{vendedor}`. |
 | Ajustes | Nombre, ciudad para Maps, moneda, copia de seguridad y datos de ejemplo. |
 
-## Mapa y ruta
+## Mapa y ruta (Google Maps)
 
-En **Ruta** está el mapa del día:
+En **Ruta** el mapa es Google Maps:
 
-- Tu ubicación en vivo (punto azul) y las visitas numeradas en el orden de la ruta, con la línea trazada
-  de una a la siguiente, a pie o en carro, con distancia y tiempo.
-- **Buscar negocios cerca**: escribe "gimnasio", "taller", "odontólogo"… o toca un atajo. Salen en el
-  mapa y en una lista por cercanía. Al tocar uno eliges el proyecto (Apps y webs, Mi proyecto, Jabones)
-  y lo agregas a la ruta del día o lo guardas como prospecto.
-- **Ordenar mejor**: reordena las paradas de la más cercana a la más lejana.
-- **Ir con Maps**: abre Google Maps con todas las paradas para que te guíe.
-- Los prospectos sin ubicación muestran un pin gris: tócalo para buscar su dirección, o en la ficha
-  usa **Estoy aquí** cuando estés en la puerta.
+- Muestra la ruta del día trazada por Google desde donde estás, parada por parada, a pie o en carro.
+- **Buscar** ("gimnasio", "taller"… o un atajo) muestra los resultados de Google en el mismo mapa,
+  cerca de ti. **Volver a la ruta** regresa al trazado.
+- Para agregar un negocio: ábrelo en Google Maps → **Compartir → Copiar enlace** → **Pegar enlace**.
+  Sale la ficha con nombre y dirección; eliges el proyecto (Apps y webs, Mi proyecto, Jabones) y lo
+  agregas a la ruta. Se guarda como "Nombre, dirección" y Google lo ubica al trazar y al navegar.
+- **Ordenar**: de la más cercana a la más lejana (usa las paradas con ubicación exacta).
+- **Ir con Google Maps**: navegación paso a paso con todas las paradas.
+- En la ficha del negocio, **Estoy aquí** guarda su ubicación exacta cuando estás en la puerta.
 
-### Traer negocios desde Google Maps (sin tarjeta)
+Sin clave de API el mapa es el de Google incrustado (no hace falta tarjeta). El servidor
+(`/api/gmaps`) lee los enlaces compartidos siguiendo solo redirecciones de Google; toma nombre y
+dirección, y coordenadas solo si vienen en el propio enlace y caen en Venezuela.
 
-Google Maps es el que más negocios tiene en Venezuela. Sin clave de API se usa así:
+### Con clave de Google (opcional)
 
-1. En **Ruta**, toca **Abrir Google Maps** (busca lo que escribiste, cerca de donde está el mapa).
-2. En Google Maps abre el negocio → **Compartir** → **Copiar enlace**.
-3. Vuelve a la app y toca **Pegar enlace**: sale la ficha con nombre, dirección y ubicación exacta;
-   elige el proyecto y agrégalo a la ruta.
-
-El servidor (`/api/gmaps`) resuelve los enlaces cortos `maps.app.goo.gl` siguiendo solo
-redirecciones de Google, y saca nombre, coordenadas y dirección de la URL y de la página del lugar.
-
-### Con o sin Google
-
-Sin configurar nada, el mapa usa OpenStreetMap (gratis): mapa de OpenStreetMap, búsqueda con Overpass,
-direcciones con Nominatim y rutas con OSRM. En Venezuela OpenStreetMap tiene menos negocios que Google.
-Con `TOMTOM_API_KEY`, las imágenes del mapa salen de TomTom (50.000 diarias gratis) a través de
-`/api/tiles`, que las deja en caché del CDN de Vercel.
-
-**TomTom (recomendado si no tienes tarjeta para Google):** mapa y 2.500 búsquedas diarias gratis, sin tarjeta.
-Sus negocios se suman a los de OpenStreetMap en la misma búsqueda, sin repetir.
-
-1. En https://developer.tomtom.com entra a tu cuenta → **Dashboard → Keys** y copia la clave
-   (viene una creada, "My first API key").
-2. En Vercel → **Settings → Environment Variables** agrega `TOMTOM_API_KEY` con esa clave
-   (sin `NEXT_PUBLIC_`: queda en el servidor y no se ve desde el teléfono) y vuelve a publicar.
-
-Para usar Google (mapa, negocios con teléfono y calificación):
-
-1. En https://console.cloud.google.com crea un proyecto y activa la facturación (Google pide tarjeta,
-   pero el uso de una persona entra en la capa gratuita mensual).
-2. En **APIs y servicios → Biblioteca** activa **Maps JavaScript API**, **Places API (New)** y
-   **Geocoding API**.
-3. En **Credenciales** crea una clave de API. Restríngela a **sitios web** con tu dominio
-   (`https://tu-app.vercel.app/*`) y a esas tres APIs.
-4. En Vercel → **Settings → Environment Variables** agrega `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` con la
-   clave y vuelve a publicar.
-5. Opcional: crea un **Map ID** (Google Maps Platform → Map management) y ponlo en
-   `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`.
+Con `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` el mapa pasa a ser interactivo: marcadores propios, búsqueda
+de Places dentro de la app con teléfono y calificación. Requiere facturación en Google Cloud
+(Maps JavaScript API, Places API (New) y Geocoding API) y, opcionalmente, un Map ID en
+`NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`.
 
 ## Bienvenida y seguridad
 

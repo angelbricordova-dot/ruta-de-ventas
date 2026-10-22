@@ -95,7 +95,13 @@ export function PlaceSheet({ target, open, onClose, date }: { target: MapTarget 
 
   /* Negocio encontrado en el mapa --------------------------------- */
   const place = target.place;
-  const existing = leads.find((l) => l.placeId === place.id || (hasCoords(l) && meters(l, place) < 80 && l.business.toLowerCase() === place.name.toLowerCase()));
+  const gquery = [place.name, place.address].filter(Boolean).join(", ");
+  const existing = leads.find(
+    (l) =>
+      l.placeId === place.id ||
+      (l.gquery && l.gquery.toLowerCase() === gquery.toLowerCase()) ||
+      (hasCoords(l) && hasCoords(place) && meters(l, place) < 80 && l.business.toLowerCase() === place.name.toLowerCase()),
+  );
   const tel = telLink(place.phone);
 
   const add = (withDate: boolean) => {
@@ -120,8 +126,8 @@ export function PlaceSheet({ target, open, onClose, date }: { target: MapTarget 
       offerId: null,
       nextAction: withDate ? { channel: "visita", date, note: "" } : null,
       notes: "",
-      lat: place.lat,
-      lng: place.lng,
+      ...(hasCoords(place) ? { lat: place.lat, lng: place.lng } : {}),
+      gquery,
       placeId: place.id,
       website: place.website,
     });
@@ -136,7 +142,7 @@ export function PlaceSheet({ target, open, onClose, date }: { target: MapTarget 
   return (
     <Sheet open={open} onClose={onClose} title={place.name}>
       <p className="-mt-1 mb-4 text-[14px] text-muted">
-        {[place.category, me ? distanceLabel(meters(me, place)) : ""].filter(Boolean).join(" · ")}
+        {[place.category, me && hasCoords(place) ? distanceLabel(meters(me, place)) : ""].filter(Boolean).join(" · ") || "De Google Maps"}
         {place.rating !== null && (
           <span className="ml-2 inline-flex items-center gap-1 text-ink">
             <Star size={13} strokeWidth={0} className="fill-[#e3a008]" />
@@ -146,11 +152,6 @@ export function PlaceSheet({ target, open, onClose, date }: { target: MapTarget 
         )}
       </p>
 
-      {place.approximate && (
-        <p className="mb-3 rounded-[12px] bg-[var(--pill-warning-bg)] px-3 py-2 text-[13.5px] text-[var(--pill-warning-ink)]">
-          Ubicación aproximada (por la dirección). Cuando llegues, corrígela con “Estoy aquí” en su ficha.
-        </p>
-      )}
       <ul className="mb-5 divide-y divide-rule text-[15px]">
         {place.address && (
           <li className="flex items-start gap-3 py-2.5">
