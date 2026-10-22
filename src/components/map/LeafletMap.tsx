@@ -6,7 +6,7 @@ import { useEffect, useMemo } from "react";
 import { Circle, MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { ME_HTML, MARKER_SIZE, markerHtml, type MapMarker, type MapViewProps } from "./types";
 
-/** Mapa libre: teselas claras de CARTO sobre datos de OpenStreetMap. */
+/** Mapa sin Google: teselas de TomTom (por nuestro servidor) u OpenStreetMap si no hay clave. */
 export default function LeafletMap({ markers, me, path, onSelect, onMove, fit, focus, initialCenter }: MapViewProps) {
   return (
     <MapContainer
@@ -17,10 +17,11 @@ export default function LeafletMap({ markers, me, path, onSelect, onMove, fit, f
       attributionControl
     >
       <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        subdomains="abcd"
+        url="/api/tiles/{z}/{x}/{y}"
+        attribution='&copy; <a href="https://www.tomtom.com">TomTom</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         maxZoom={20}
+        maxNativeZoom={19}
+        detectRetina
       />
       {path && path.length > 1 && (
         <>

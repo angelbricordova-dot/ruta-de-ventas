@@ -37,10 +37,12 @@ En **Ruta** está el mapa del día:
 
 ### Con o sin Google
 
-Sin configurar nada, el mapa usa OpenStreetMap (gratis): mapa de CARTO, búsqueda con Overpass,
+Sin configurar nada, el mapa usa OpenStreetMap (gratis): mapa de OpenStreetMap, búsqueda con Overpass,
 direcciones con Nominatim y rutas con OSRM. En Venezuela OpenStreetMap tiene menos negocios que Google.
+Con `TOMTOM_API_KEY`, las imágenes del mapa salen de TomTom (50.000 diarias gratis) a través de
+`/api/tiles`, que las deja en caché del CDN de Vercel.
 
-**TomTom (recomendado si no tienes tarjeta para Google):** 2.500 búsquedas diarias gratis, sin tarjeta.
+**TomTom (recomendado si no tienes tarjeta para Google):** mapa y 2.500 búsquedas diarias gratis, sin tarjeta.
 Sus negocios se suman a los de OpenStreetMap en la misma búsqueda, sin repetir.
 
 1. En https://developer.tomtom.com entra a tu cuenta → **Dashboard → Keys** y copia la clave
