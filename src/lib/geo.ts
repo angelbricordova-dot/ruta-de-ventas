@@ -32,7 +32,7 @@ export interface Place extends LatLng {
   rating: number | null;
   ratings: number;
   mapsUrl: string;
-  source: "google" | "osm";
+  source: "google" | "tomtom" | "osm";
 }
 
 export interface RouteResult {
@@ -194,8 +194,43 @@ async function searchGoogle(query: string, center: LatLng, radius: number): Prom
     .sort((a, b) => meters(center, a) - meters(center, b));
 }
 
-export function searchPlaces(query: string, center: LatLng, radius = 3000): Promise<Place[]> {
-  return googleEnabled() && typeof google !== "undefined" ? searchGoogle(query, center, radius) : searchOsm(query, center, radius);
+/* Búsqueda: TomTom (por nuestro servidor, que guarda la clave) ---- */
+
+/** null = TomTom no está configurado en el servidor. */
+async function searchTomTom(query: string, center: LatLng, radius: number): Promise<Place[] | null> {
+  const q = new URLSearchParams({ q: query, lat: String(center.lat), lng: String(center.lng), radius: String(radius) });
+  const res = await fetch(`/api/places?${q}`, { cache: "no-store" });
+  if (res.status === 503) return null;
+  if (!res.ok) throw new Error(`TomTom ${res.status}`);
+  return ((await res.json()) as { places: Place[] }).places;
+}
+
+const sameName = (a: string, b: string) => {
+  const x = norm(a).replace(/[^a-z0-9]/g, "");
+  const y = norm(b).replace(/[^a-z0-9]/g, "");
+  return x === y || (x.length > 5 && (x.includes(y) || y.includes(x)));
+};
+
+/** Une dos listas sin repetir el mismo negocio (mismo nombre a menos de 120 m). */
+function mergePlaces(primary: Place[], extra: Place[]): Place[] {
+  const out = [...primary];
+  for (const p of extra) {
+    if (!out.some((o) => meters(o, p) < 120 && sameName(o.name, p.name))) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Busca negocios cerca. Con Google, usa Google. Si no, junta TomTom (si está configurado)
+ * y OpenStreetMap, para tener la mayor cantidad de negocios posible.
+ */
+export async function searchPlaces(query: string, center: LatLng, radius = 3000): Promise<Place[]> {
+  if (googleEnabled() && typeof google !== "undefined") return searchGoogle(query, center, radius);
+  const [tomtom, osm] = await Promise.allSettled([searchTomTom(query, center, radius), searchOsm(query, center, radius)]);
+  const a = tomtom.status === "fulfilled" && tomtom.value ? tomtom.value : [];
+  const b = osm.status === "fulfilled" ? osm.value : [];
+  if (tomtom.status === "rejected" && osm.status === "rejected") throw new Error("Sin búsqueda");
+  return mergePlaces(a, b).sort((x, y) => meters(center, x) - meters(center, y));
 }
 
 /* Direcciones → coordenadas ---------------------------------------- */

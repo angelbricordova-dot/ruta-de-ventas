@@ -515,6 +515,12 @@ function RouteScreen() {
                   })}
                 </ul>
               )}
+              {results && results.length > 0 && (
+                <p className="mt-2 text-[12px] text-faint">
+                  Datos:{" "}
+                  {[...new Set(results.map((r) => ({ google: "Google", tomtom: "TomTom", osm: "OpenStreetMap" })[r.source]))].join(" · ")}
+                </p>
+              )}
             </Panel>
           )}
 

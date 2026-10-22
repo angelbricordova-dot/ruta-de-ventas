@@ -40,6 +40,14 @@ En **Ruta** está el mapa del día:
 Sin configurar nada, el mapa usa OpenStreetMap (gratis): mapa de CARTO, búsqueda con Overpass,
 direcciones con Nominatim y rutas con OSRM. En Venezuela OpenStreetMap tiene menos negocios que Google.
 
+**TomTom (recomendado si no tienes tarjeta para Google):** 2.500 búsquedas diarias gratis, sin tarjeta.
+Sus negocios se suman a los de OpenStreetMap en la misma búsqueda, sin repetir.
+
+1. En https://developer.tomtom.com entra a tu cuenta → **Dashboard → Keys** y copia la clave
+   (viene una creada, "My first API key").
+2. En Vercel → **Settings → Environment Variables** agrega `TOMTOM_API_KEY` con esa clave
+   (sin `NEXT_PUBLIC_`: queda en el servidor y no se ve desde el teléfono) y vuelve a publicar.
+
 Para usar Google (mapa, negocios con teléfono y calificación):
 
 1. En https://console.cloud.google.com crea un proyecto y activa la facturación (Google pide tarjeta,
