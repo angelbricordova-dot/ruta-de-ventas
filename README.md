@@ -21,6 +21,38 @@ Proyectos iniciales:
 | Guiones | Textos para llamadas, visitas, WhatsApp y DMs con `{negocio}`, `{contacto}`, `{rubro}`, `{zona}`, `{vendedor}`. |
 | Ajustes | Nombre, ciudad para Maps, moneda, copia de seguridad y datos de ejemplo. |
 
+## Mapa y ruta
+
+En **Ruta** está el mapa del día:
+
+- Tu ubicación en vivo (punto azul) y las visitas numeradas en el orden de la ruta, con la línea trazada
+  de una a la siguiente, a pie o en carro, con distancia y tiempo.
+- **Buscar negocios cerca**: escribe "gimnasio", "taller", "odontólogo"… o toca un atajo. Salen en el
+  mapa y en una lista por cercanía. Al tocar uno eliges el proyecto (Apps y webs, Mi proyecto, Jabones)
+  y lo agregas a la ruta del día o lo guardas como prospecto.
+- **Ordenar mejor**: reordena las paradas de la más cercana a la más lejana.
+- **Ir con Maps**: abre Google Maps con todas las paradas para que te guíe.
+- Los prospectos sin ubicación muestran un pin gris: tócalo para buscar su dirección, o en la ficha
+  usa **Estoy aquí** cuando estés en la puerta.
+
+### Con o sin Google
+
+Sin configurar nada, el mapa usa OpenStreetMap (gratis): mapa de CARTO, búsqueda con Overpass,
+direcciones con Nominatim y rutas con OSRM. En Venezuela OpenStreetMap tiene menos negocios que Google.
+
+Para usar Google (mapa, negocios con teléfono y calificación):
+
+1. En https://console.cloud.google.com crea un proyecto y activa la facturación (Google pide tarjeta,
+   pero el uso de una persona entra en la capa gratuita mensual).
+2. En **APIs y servicios → Biblioteca** activa **Maps JavaScript API**, **Places API (New)** y
+   **Geocoding API**.
+3. En **Credenciales** crea una clave de API. Restríngela a **sitios web** con tu dominio
+   (`https://tu-app.vercel.app/*`) y a esas tres APIs.
+4. En Vercel → **Settings → Environment Variables** agrega `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` con la
+   clave y vuelve a publicar.
+5. Opcional: crea un **Map ID** (Google Maps Platform → Map management) y ponlo en
+   `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`.
+
 ## Bienvenida y seguridad
 
 - La primera vez en cada dispositivo aparece una guía: PIN de 4 números, Face ID o huella,

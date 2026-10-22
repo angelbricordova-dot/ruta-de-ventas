@@ -71,6 +71,12 @@ export interface Lead {
   /** Orden dentro de la ruta a pie del día. */
   routeOrder: number;
   notes: string;
+  /** Ubicación en el mapa (si se conoce). */
+  lat?: number;
+  lng?: number;
+  /** ID del lugar en Google u OpenStreetMap, para no agregarlo dos veces. */
+  placeId?: string;
+  website?: string;
   createdAt: string;
   updatedAt: string;
   demo?: boolean;

@@ -54,6 +54,10 @@ interface State extends SyncData {
   setStage: (id: string, stage: Stage) => void;
   schedule: (id: string, next: NextAction | null) => void;
   moveInRoute: (id: string, direction: -1 | 1, date: string) => void;
+  /** Aplica un orden completo a las visitas (por ejemplo, el orden optimizado). */
+  setRouteOrder: (ids: string[]) => void;
+  /** Cambia algunos campos de un prospecto (ubicación, teléfono…). */
+  patchLead: (id: string, patch: Partial<Lead>) => void;
   logContact: (input: LogInput) => string | null;
   deleteActivity: (id: string) => void;
 
@@ -202,6 +206,14 @@ export const useStore = create<State>()(
           const order = new Map(route.map((l, k) => [l.id, k + 1]));
           return { leads: s.leads.map((l) => (order.has(l.id) ? touch(l, { routeOrder: order.get(l.id)! }) : l)) };
         }),
+
+      setRouteOrder: (ids) =>
+        set((s) => {
+          const order = new Map(ids.map((id, i) => [id, i + 1]));
+          return { leads: s.leads.map((l) => (order.has(l.id) ? touch(l, { routeOrder: order.get(l.id)! }) : l)) };
+        }),
+
+      patchLead: (id, patch) => set((s) => ({ leads: s.leads.map((l) => (l.id === id ? touch(l, patch) : l)) })),
 
       logContact: ({ leadId, channel, outcome, note, amount, next }) => {
         const id = uid();

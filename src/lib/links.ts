@@ -27,12 +27,16 @@ export function mailLink(email: string, subject = "", body = ""): string | null 
   return `mailto:${email}${qs ? `?${qs}` : ""}`;
 }
 
-function place(lead: Pick<Lead, "address" | "business" | "zone">, city: string): string {
+type Where = Pick<Lead, "address" | "business" | "zone" | "lat" | "lng">;
+
+/** Coordenadas exactas si se conocen; si no, la dirección escrita. */
+function place(lead: Where, city: string): string {
+  if (typeof lead.lat === "number" && typeof lead.lng === "number") return `${lead.lat.toFixed(6)},${lead.lng.toFixed(6)}`;
   const where = lead.address || `${lead.business} ${lead.zone}`;
   return [where, city].filter(Boolean).join(", ");
 }
 
-export function mapLink(lead: Pick<Lead, "address" | "business" | "zone">, city: string): string {
+export function mapLink(lead: Where, city: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place(lead, city))}`;
 }
 
@@ -40,7 +44,7 @@ export function mapLink(lead: Pick<Lead, "address" | "business" | "zone">, city:
  * Ruta a pie con varias paradas en Google Maps. Sin origen: Maps parte desde
  * la ubicación actual del teléfono. Google acepta hasta 9 paradas intermedias.
  */
-export function walkingRoute(leads: Pick<Lead, "address" | "business" | "zone">[], city: string): string | null {
+export function walkingRoute(leads: Where[], city: string): string | null {
   const stops = leads.map((l) => place(l, city)).slice(0, 10);
   if (stops.length === 0) return null;
   const destination = stops[stops.length - 1];

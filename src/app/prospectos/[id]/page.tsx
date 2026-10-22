@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { ChevronLeft, Copy, Trash2 } from "lucide-react";
+import { ChevronLeft, Copy, LocateFixed, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { mapLink } from "@/lib/links";
 import { useStore } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import { CHANNEL_LABEL, CHANNEL_VERB, OUTCOME_LABEL, STAGE_LABEL, STAGES } from "@/lib/labels";
@@ -11,7 +13,7 @@ import { addDays, isoDay, longDay, money, relativeDay, when } from "@/lib/format
 import { fillScript } from "@/lib/links";
 import { Canvas } from "@/components/Shell";
 import { ContactButton, Due, LogButton } from "@/components/LeadBits";
-import { Avatar, Button, Chips, cx, Empty, Panel, ProjectTag } from "@/components/ui";
+import { ActionLink, Avatar, Button, Chips, cx, Empty, Panel, ProjectTag } from "@/components/ui";
 import type { Channel } from "@/lib/types";
 
 export default function LeadPage() {
@@ -240,6 +242,10 @@ export default function LeadPage() {
             />
           </Panel>
 
+          <Panel title="Ubicación">
+            <LocationBox lead={lead} />
+          </Panel>
+
           <Panel title="Datos">
             <dl>
               {facts.map(([k, v]) => (
@@ -277,5 +283,48 @@ export default function LeadPage() {
       </div>
       <div className="h-20 lg:hidden" aria-hidden />
     </Canvas>
+  );
+}
+
+/** Dónde está el negocio: guardar la ubicación actual al estar en la puerta, o verlo en la ruta. */
+function LocationBox({ lead }: { lead: import("@/lib/types").Lead }) {
+  const patchLead = useStore((s) => s.patchLead);
+  const city = useStore((s) => s.settings.city);
+  const [busy, setBusy] = useState(false);
+  const located = typeof lead.lat === "number" && typeof lead.lng === "number";
+
+  const here = () => {
+    if (!("geolocation" in navigator)) return toast("Este teléfono no da la ubicación");
+    setBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        patchLead(lead.id, { lat: p.coords.latitude, lng: p.coords.longitude });
+        setBusy(false);
+        toast(lead.business, { description: "Ubicación guardada aquí mismo." });
+      },
+      () => {
+        setBusy(false);
+        toast("No se pudo leer tu ubicación", { description: "Revisa que Safari tenga permiso de ubicación." });
+      },
+      { enableHighAccuracy: true, timeout: 15_000 },
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[15px] text-muted lg:text-[14px]">
+        {located ? "Está marcado en el mapa." : "Aún no está en el mapa. Si estás en la puerta, guarda tu ubicación."}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={here} disabled={busy}>
+          <LocateFixed size={16} strokeWidth={1.9} /> {busy ? "Ubicando…" : located ? "Corregir: estoy aquí" : "Estoy aquí"}
+        </Button>
+        {located && (
+          <ActionLink href={mapLink(lead, city)} variant="ghost" className="text-accent">
+            Abrir en Google Maps
+          </ActionLink>
+        )}
+      </div>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import type { Activity, Lead, Project, Script, Settings } from "./types";
 export const DEFAULT_SETTINGS: Settings = {
   sellerName: "Alejandro Lamont",
   currency: "$",
-  city: "",
+  city: "Maracay",
 };
 
 export const PROJECT_LUIS = "p-luis";
@@ -166,6 +166,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-1",
+      lat: 10.249,
+      lng: -67.599,
       projectId: PROJECT_LUIS,
       business: "Taller Hermanos Ruiz",
       niche: "Taller mecánico",
@@ -183,6 +185,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-2",
+      lat: 10.2475,
+      lng: -67.5935,
       projectId: PROJECT_LUIS,
       business: "Clínica Dental Sonríe",
       niche: "Odontólogo",
@@ -200,6 +204,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-3",
+      lat: 10.2452,
+      lng: -67.597,
       projectId: PROJECT_JABONES,
       business: "Naturaleza Viva",
       niche: "Tienda naturista",
@@ -216,6 +222,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-4",
+      lat: 10.268,
+      lng: -67.583,
       projectId: PROJECT_LUIS,
       business: "Gimnasio Fuerza Norte",
       niche: "Gimnasio",
@@ -231,6 +239,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-5",
+      lat: 10.23,
+      lng: -67.605,
       projectId: PROJECT_LUIS,
       business: "Veterinaria Patitas",
       niche: "Veterinaria",
@@ -245,6 +255,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-6",
+      lat: 10.246,
+      lng: -67.5945,
       projectId: PROJECT_LUIS,
       business: "Barbería El Clásico",
       niche: "Barbería",
@@ -258,6 +270,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-7",
+      lat: 10.22,
+      lng: -67.57,
       projectId: PROJECT_JABONES,
       business: "Insumos La Esencia",
       niche: "Proveedor",
@@ -270,6 +284,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-8",
+      lat: 10.235,
+      lng: -67.6,
       projectId: PROJECT_LUIS,
       business: "Restaurante La Leña",
       niche: "Restaurante",
@@ -286,6 +302,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-9",
+      lat: 10.262,
+      lng: -67.588,
       projectId: PROJECT_JABONES,
       business: "Hotel Mirador",
       niche: "Hotel",
@@ -301,6 +319,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-10",
+      lat: 10.265,
+      lng: -67.59,
       projectId: PROJECT_LUIS,
       business: "Spa Armonía",
       niche: "Spa y estética",
@@ -314,6 +334,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-11",
+      lat: 10.228,
+      lng: -67.61,
       projectId: PROJECT_LUIS,
       business: "Odontología Familiar Quispe",
       niche: "Odontólogo",
@@ -328,6 +350,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-12",
+      lat: 10.215,
+      lng: -67.575,
       projectId: PROJECT_LUIS,
       business: "Autoservicio Don Pepe",
       niche: "Taller mecánico",
@@ -341,6 +365,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-13",
+      lat: 10.244,
+      lng: -67.599,
       projectId: PROJECT_JABONES,
       business: "Minimarket Doña Julia",
       niche: "Minimarket",
@@ -354,6 +380,8 @@ export function seedDemo(today = isoDay()): { leads: Lead[]; activities: Activit
     {
       ...base,
       id: "d-14",
+      lat: 10.27,
+      lng: -67.58,
       projectId: PROJECT_LUIS,
       business: "CrossFit Titán",
       niche: "Gimnasio",
