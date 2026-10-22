@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ClipboardPaste,
   ExternalLink,
+  LocateFixed,
   MapPin,
   Navigation,
   Plus,
@@ -87,6 +88,7 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
   const projectMap = useProjectMap();
   const openLeadForm = useUI((s) => s.openLeadForm);
   const me = useLocation((s) => s.pos);
+  const locStatus = useLocation((s) => s.status);
 
   const today = isoDay();
   const [date, setDate] = useState(today);
@@ -139,8 +141,12 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
   const visits = lane("pie");
   const stops = visits.filter(hasPlace);
   const located = stops.filter(hasCoords);
-  const origin = isToday && me ? me : null;
-  const here = me ?? MARACAY;
+  const [start, setStart] = useState<LatLng | null>(null);
+  useEffect(() => {
+    if (me && !start) setStart({ lat: me.lat, lng: me.lng });
+  }, [me, start]);
+  const origin = isToday && start ? start : null;
+  const here = start ?? MARACAY;
 
   const week = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const countOn = (d: string) => agendaFor(leads, d, d === today).length;
@@ -153,7 +159,7 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
     return googleEmbedSearch("", here, 15);
     // La ubicación se redondea para no recargar el mapa con cada paso.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searched, focusText, stops.map((s) => googlePlaceText(s, city)).join("|"), mode, origin ? `${origin.lat.toFixed(3)},${origin.lng.toFixed(3)}` : "", here.lat.toFixed(2)]);
+  }, [searched, focusText, stops.map((s) => googlePlaceText(s, city)).join("|"), mode, origin?.lat, origin?.lng, here.lat, here.lng]);
 
   /* Mapa interactivo (con clave) ---------------------------------- */
   const locatedKey = located.map((s) => `${s.id}@${s.lat},${s.lng}`).join("|");
@@ -442,21 +448,47 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
             </a>
           </div>
 
-          {/* Traer un negocio desde Google Maps */}
-          {!interactive && (
-            <div className="mt-3 rounded-[18px] bg-accent-tint p-3.5">
-              <p className="text-[14px] leading-snug text-[#163a72] lg:text-[13px]">
-                <b className="font-semibold">¿Te interesa uno?</b> Ábrelo en Google Maps, toca <b className="font-semibold">Compartir → Copiar enlace</b> y pégalo aquí.
-              </p>
+          {/* Tu ubicación: punto de partida de la ruta y centro de las búsquedas */}
+          <div className="mt-1 flex items-center justify-between gap-2 text-[13px] text-muted">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className={cx("size-2 flex-none rounded-full", start ? "bg-positive" : locStatus === "denied" ? "bg-negative" : "bg-control")} />
+              <span className="truncate">
+                {start
+                  ? `Saliendo desde tu ubicación${me && meters(me, start) > 150 ? ` · te moviste ${distanceLabel(meters(me, start))}` : ""}`
+                  : locStatus === "denied"
+                    ? "Ubicación bloqueada: actívala en Ajustes → Privacidad → Localización"
+                    : "Buscando tu ubicación…"}
+              </span>
+            </span>
+            {me && start && meters(me, start) > 150 && (
               <button
                 type="button"
-                onClick={pasteFromClipboard}
-                disabled={paste.busy}
-                className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-ink text-[15px] font-medium text-white disabled:opacity-50 lg:h-9 lg:text-[13px]"
+                onClick={() => {
+                  setStart({ lat: me.lat, lng: me.lng });
+                  haptic(8);
+                }}
+                className="inline-flex h-9 flex-none items-center gap-1 font-medium text-accent"
               >
-                <ClipboardPaste size={16} strokeWidth={1.9} /> {paste.busy ? "Leyendo…" : "Pegar enlace de Google Maps"}
+                <LocateFixed size={14} strokeWidth={2} /> Actualizar
               </button>
-            </div>
+            )}
+            {locStatus === "denied" && (
+              <button type="button" onClick={() => startLocation()} className="inline-flex h-9 flex-none items-center font-medium text-accent">
+                Reintentar
+              </button>
+            )}
+          </div>
+
+          {/* Traer un negocio desde Google Maps: copiar su enlace y pegarlo aquí */}
+          {!interactive && (
+            <button
+              type="button"
+              onClick={pasteFromClipboard}
+              disabled={paste.busy}
+              className="press mt-3 inline-flex h-12 w-full items-center justify-center gap-1.5 rounded-full bg-ink text-[15px] font-medium text-white disabled:opacity-50 lg:h-10 lg:text-[14px]"
+            >
+              <ClipboardPaste size={17} strokeWidth={1.9} /> {paste.busy ? "Leyendo…" : "Pegar enlace de Google Maps"}
+            </button>
           )}
         </div>
 
@@ -537,7 +569,7 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
                 ? `Siguiente: ${nextStop.business} · ${distanceLabel(meters(me, nextStop))}`
                 : stops.length
                   ? "Google traza la ruta en el mapa, en este orden."
-                  : "Busca en Google Maps y pega el enlace del negocio para agregarlo."}
+                  : "Pega el enlace de un negocio de Google Maps para agregarlo."}
             </p>
             {stops.length > 0 && (
               <div className="mt-3 flex gap-2">
@@ -551,7 +583,7 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
                     rel="noreferrer"
                     className="press inline-flex h-11 flex-[1.4] items-center justify-center gap-1.5 rounded-full bg-ink px-4 text-[15px] font-medium text-white lg:h-[38px] lg:text-[14px]"
                   >
-                    <Navigation size={16} strokeWidth={1.9} /> Ir con Google Maps
+                    <Navigation size={16} strokeWidth={1.9} /> Ir con Maps
                   </a>
                 )}
               </div>
@@ -671,13 +703,6 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
           </Button>
         }
       >
-        <ol className="mb-4 list-decimal space-y-1 pl-5 text-[15px] text-muted lg:text-[14px]">
-          <li>En Google Maps, abre la ficha del negocio.</li>
-          <li>
-            Toca <b className="font-medium text-ink">Compartir</b> y luego <b className="font-medium text-ink">Copiar enlace</b>.
-          </li>
-          <li>Pégalo aquí abajo.</li>
-        </ol>
         <textarea
           value={paste.text}
           onChange={(e) => setPaste((p) => ({ ...p, text: e.target.value, error: "" }))}
