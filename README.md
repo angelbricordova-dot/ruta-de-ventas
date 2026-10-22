@@ -28,7 +28,10 @@ En **Ruta** el mapa es Google Maps:
 - Muestra la ruta del día trazada por Google desde donde estás, parada por parada, a pie o en carro.
 - **Buscar** ("gimnasio", "taller"… o un atajo) muestra los resultados de Google en el mismo mapa,
   cerca de ti. **Volver a la ruta** regresa al trazado.
-- Para agregar un negocio: ábrelo en Google Maps → **Compartir → Copiar enlace** → **Pegar enlace**.
+- **Agregar negocio**: escribe el nombre que ves en el mapa; la hoja muestra una vista previa de
+  Google con ese negocio para confirmarlo, eliges el proyecto y lo agregas a la ruta.
+  (El mapa incrustado no le dice a la app qué tocaste, por eso se escribe el nombre.)
+- También puedes traerlo con su enlace: Google Maps → **Compartir → Copiar enlace** → **Pegar enlace**.
   Sale la ficha con nombre y dirección; eliges el proyecto (Apps y webs, Mi proyecto, Jabones) y lo
   agregas a la ruta. Se guarda como "Nombre, dirección" y Google lo ubica al trazar y al navegar.
 - **Ordenar**: de la más cercana a la más lejana (usa las paradas con ubicación exacta).

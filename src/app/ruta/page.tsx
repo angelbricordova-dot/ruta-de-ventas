@@ -54,6 +54,7 @@ import { Canvas } from "@/components/Shell";
 import { ContactButton, DoneCircle, Due, ROW_MOTION, SwipeRow } from "@/components/LeadBits";
 import { MapView, type MapMarker } from "@/components/map/MapView";
 import { PlaceSheet, type MapTarget } from "@/components/PlaceSheet";
+import { AddPlaceSheet } from "@/components/AddPlaceSheet";
 import { useUI } from "@/lib/ui-store";
 import { postponeWithUndo } from "@/lib/notify";
 import { Button, Chips, cx, Empty, Input, Panel, ProjectDot, Segmented, Sheet } from "@/components/ui";
@@ -125,6 +126,7 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
   const [sheet, setSheet] = useState<{ target: MapTarget | null; open: boolean; n: number }>({ target: null, open: false, n: 0 });
   const [picking, setPicking] = useState(false);
   const [paste, setPaste] = useState({ open: false, text: "", busy: false, error: "" });
+  const [adding, setAdding] = useState({ open: false, n: 0 });
   const mapBox = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -420,11 +422,11 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
               />
             )}
             {(searched || focusText) && (
-              <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+              <div className="pointer-events-none absolute top-3 right-3 z-10">
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-medium text-white shadow-lg"
+                  className="pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-3.5 text-[13px] font-medium text-white shadow-lg"
                 >
                   <X size={14} strokeWidth={2.2} /> Volver a la ruta
                 </button>
@@ -481,14 +483,23 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
 
           {/* Traer un negocio desde Google Maps: copiar su enlace y pegarlo aquí */}
           {!interactive && (
-            <button
-              type="button"
-              onClick={pasteFromClipboard}
-              disabled={paste.busy}
-              className="press mt-3 inline-flex h-12 w-full items-center justify-center gap-1.5 rounded-full bg-ink text-[15px] font-medium text-white disabled:opacity-50 lg:h-10 lg:text-[14px]"
-            >
-              <ClipboardPaste size={17} strokeWidth={1.9} /> {paste.busy ? "Leyendo…" : "Pegar enlace de Google Maps"}
-            </button>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAdding((a) => ({ open: true, n: a.n + 1 }))}
+                className="press inline-flex h-12 flex-[1.3] items-center justify-center gap-1.5 rounded-full bg-ink text-[15px] font-medium text-white lg:h-10 lg:text-[14px]"
+              >
+                <Plus size={18} strokeWidth={2.2} /> Agregar negocio
+              </button>
+              <button
+                type="button"
+                onClick={pasteFromClipboard}
+                disabled={paste.busy}
+                className="press inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-full bg-active text-[15px] font-medium text-ink disabled:opacity-50 lg:h-10 lg:text-[14px]"
+              >
+                <ClipboardPaste size={17} strokeWidth={1.9} /> {paste.busy ? "Leyendo…" : "Pegar enlace"}
+              </button>
+            </div>
           )}
         </div>
 
@@ -569,7 +580,7 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
                 ? `Siguiente: ${nextStop.business} · ${distanceLabel(meters(me, nextStop))}`
                 : stops.length
                   ? "Google traza la ruta en el mapa, en este orden."
-                  : "Pega el enlace de un negocio de Google Maps para agregarlo."}
+                  : "Busca en el mapa y toca Agregar negocio."}
             </p>
             {stops.length > 0 && (
               <div className="mt-3 flex gap-2">
@@ -692,6 +703,17 @@ function RouteScreen({ interactive }: { interactive: boolean }) {
       )}
 
       <Picker open={picking} onClose={() => setPicking(false)} date={date} />
+
+      {adding.n > 0 && (
+        <AddPlaceSheet
+          key={adding.n}
+          open={adding.open}
+          onClose={() => setAdding((a) => ({ ...a, open: false }))}
+          date={date}
+          near={here}
+          niche={searched ? nicheFor(searched) : ""}
+        />
+      )}
 
       <Sheet
         open={paste.open}
