@@ -146,6 +146,11 @@ export function PlaceSheet({ target, open, onClose, date }: { target: MapTarget 
         )}
       </p>
 
+      {place.approximate && (
+        <p className="mb-3 rounded-[12px] bg-[var(--pill-warning-bg)] px-3 py-2 text-[13.5px] text-[var(--pill-warning-ink)]">
+          Ubicación aproximada (por la dirección). Cuando llegues, corrígela con “Estoy aquí” en su ficha.
+        </p>
+      )}
       <ul className="mb-5 divide-y divide-rule text-[15px]">
         {place.address && (
           <li className="flex items-start gap-3 py-2.5">

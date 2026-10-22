@@ -81,6 +81,7 @@ function RouteScreen() {
   const setRouteOrder = useStore((s) => s.setRouteOrder);
   const patchLead = useStore((s) => s.patchLead);
   const projectMap = useProjectMap();
+  const openLeadForm = useUI((s) => s.openLeadForm);
   const me = useLocation((s) => s.pos);
   const locStatus = useLocation((s) => s.status);
 
@@ -771,7 +772,20 @@ function RouteScreen() {
           rows={3}
           className="w-full rounded-[14px] border border-control bg-raised px-3 py-2.5 text-[16px] outline-none focus:border-ink lg:text-[14px]"
         />
-        {paste.error && <p className="mt-2 text-[14px] text-negative">{paste.error}</p>}
+        {paste.error && (
+          <div className="mt-2 flex flex-col gap-2">
+            <p className="text-[14px] text-negative">{paste.error}</p>
+            <Button
+              className="self-start"
+              onClick={() => {
+                setPaste((p) => ({ ...p, open: false }));
+                openLeadForm(null, { nextAction: { channel: "visita", date, note: "" } });
+              }}
+            >
+              Agregar a mano
+            </Button>
+          </div>
+        )}
       </Sheet>
     </Canvas>
   );

@@ -33,6 +33,8 @@ export interface Place extends LatLng {
   ratings: number;
   mapsUrl: string;
   source: "google" | "tomtom" | "osm";
+  /** La ubicación salió de la dirección, no del pin exacto. */
+  approximate?: boolean;
 }
 
 export interface RouteResult {
@@ -254,8 +256,14 @@ export async function placeFromGoogleLink(text: string): Promise<Place> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   });
-  const json = (await res.json()) as { place?: { name: string; address: string; lat: number; lng: number; url: string }; message?: string };
-  if (!res.ok || !json.place) throw new Error(json.message ?? "No pude leer ese enlace.");
+  const json = (await res.json()) as {
+    place?: { name: string; address: string; lat: number; lng: number; url: string; approximate?: boolean };
+    message?: string;
+    detail?: string;
+  };
+  if (!res.ok || !json.place) {
+    throw new Error([json.message ?? "No pude leer ese enlace.", json.detail ? `(Llevó a: ${json.detail})` : ""].filter(Boolean).join(" "));
+  }
   const p = json.place;
   return {
     id: `gmaps:${p.lat.toFixed(5)},${p.lng.toFixed(5)}`,
@@ -270,6 +278,7 @@ export async function placeFromGoogleLink(text: string): Promise<Place> {
     lat: p.lat,
     lng: p.lng,
     source: "google",
+    approximate: p.approximate,
   };
 }
 
